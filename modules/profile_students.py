@@ -1,4 +1,4 @@
-# modules/profile_students.py
+
 import customtkinter as ctk
 from tkinter import messagebox, ttk
 import database
@@ -64,7 +64,8 @@ class ProfileStudents(ctk.CTkFrame):
         self.email.pack(fill="x", padx=20, pady=5)
 
         # Parent Info
-        ctk.CTkLabel(tab, text="Parent/Guardian Information", font=ctk.CTkFont(size=16, weight="bold")).pack(anchor="w", padx=20, pady=(20,10))
+        ctk.CTkLabel(tab, text="Parent/Guardian Information", 
+        font=ctk.CTkFont(size=16, weight="bold")).pack(anchor="w", padx=20, pady=(20,10))
 
         self.par_name = ctk.CTkEntry(tab, placeholder_text="Parent Full Name")
         self.par_name.pack(fill="x", padx=20, pady=5)
@@ -75,7 +76,7 @@ class ProfileStudents(ctk.CTkFrame):
 
         # Save Button
         ctk.CTkButton(tab, text="Save Student Profile", height=45, 
-                     fg_color="#2563EB", command=self.save_student).pack(pady=30)
+        fg_color="#2563EB", command=self.save_student).pack(pady=30)
 
     def save_student(self):
         try:
@@ -114,7 +115,7 @@ class ProfileStudents(ctk.CTkFrame):
             entry.delete(0, 'end')
 
     def create_list_tab(self, tab):
-        # This will be enhanced later with search and Treeview
+
         label = ctk.CTkLabel(tab, text="Student List (Coming Soon - Enhanced Version)", 
                             font=ctk.CTkFont(size=20))
         label.pack(pady=100)
