@@ -6,7 +6,7 @@ Central Philippine University | College of Computer Studies | BS Computer Scienc
 
 ---
 
-## About the Project
+## About this Project
 
 ABC Learning Center is a privately owned tutorial and review center established in 2018,
 offering academic assistance to Elementary and Senior High School students
@@ -56,13 +56,13 @@ No internet or remote access required.
 
 ## Tech Stack
 
-| Layer          | Technology     |
-|----------------|----------------|
-| Language       | Python 3       |
-| UI Framework   | CustomTkinter  |
-| Database       | SQLite         |
-| IDE            | VS Code        |
-| Version Control| Git + GitHub   |
+| Layer          | Technology    |
+|----------------|---------------|
+| Language       | Python 3      |
+| UI Framework   | CustomTkinter |
+| Database       | SQLite        |
+| IDE            | Pycharm       |
+| Version Control| Git + GitHub  |
 
 ---
 
@@ -76,7 +76,7 @@ STUDENT, PARENT, STAFF, TUTOR, ENROLLMENT, DETAIL,
 SUBJECT, ATTENDANCE, GRADE, PAYMENT, RECEIPT
 
 ---
----
+
 
 ## Getting Started
 
@@ -127,3 +127,11 @@ The system was designed following the full systems analysis and design process i
 
 This project is developed for academic purposes only.  
 2026 Group 1 — Central Philippine University
+
+The system is LAN-based — accessible only from computers within
+the learning center. Students and parents do not have system accounts;
+all data is encoded by the administrative staff on their behalf.
+
+If this somehow ended up on your screen — welcome.
+Feel free to look around, borrow an idea, or just appreciate
+the chaos that is a group project. We hope it helps in some way.

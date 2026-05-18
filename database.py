@@ -5,13 +5,13 @@ from datetime import datetime
 DB_NAME = "abc_learning_center.db"
 
 def get_connection():
-    """Create and return a database connection"""
     conn = sqlite3.connect(DB_NAME)
-    conn.row_factory = sqlite3.Row  # Allows accessing columns by name
+    conn.row_factory = sqlite3.Row
+    conn.execute("PRAGMA foreign_keys = ON")
     return conn
 
 def init_database():
-    """Initialize all tables"""
+    # Initiates all the Tables
     conn = get_connection()
     cursor = conn.cursor()
 

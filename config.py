@@ -1,7 +1,7 @@
 # config.py
 import customtkinter as ctk
 
-# Modern Professional Dark Theme
+# Theme
 COLORS = {
     "bg": "#0F172A",           # Main background
     "surface": "#1E2937",      # Cards and panels
