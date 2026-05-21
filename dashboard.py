@@ -267,3 +267,25 @@ class Dashboard(ctk.CTk):
 if __name__ == "__main__":
     app = Dashboard(user_role="Admin/Staff", user_name="Maria Santos")
     app.mainloop()
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
