@@ -235,7 +235,8 @@ def init_database_v2():
         dob DATE NOT NULL,
         address TEXT,
         studContactNo TEXT,
-        studEmail TEXT UNIQUE
+        studEmail TEXT UNIQUE,
+        levelType TEXT
     )''')
 
     # ====================== PARENT ======================
@@ -282,6 +283,8 @@ def init_database_v2():
         description TEXT,
         gradeLevel TEXT NOT NULL,
         strand TEXT,
+        semester INTEGER,
+        subjectType TEXT,
         termType TEXT,
         isActive INTEGER DEFAULT 1
     )''')
@@ -330,10 +333,12 @@ def init_database_v2():
         gradeID INTEGER PRIMARY KEY AUTOINCREMENT,
         detailID INTEGER NOT NULL,
         tutorID INTEGER NOT NULL,
+        quarter TEXT NOT NULL,
         gradeValue REAL NOT NULL,
         dateRecorded DATE DEFAULT CURRENT_DATE,
         FOREIGN KEY (detailID) REFERENCES DETAIL(detailID) ON DELETE CASCADE,
-        FOREIGN KEY (tutorID) REFERENCES TUTOR(tutorID)
+        FOREIGN KEY (tutorID) REFERENCES TUTOR(tutorID),
+        UNIQUE(detailID, quarter) ON CONFLICT REPLACE
     )''')
 
     # ====================== PAYMENT ======================
