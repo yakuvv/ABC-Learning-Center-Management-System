@@ -26,37 +26,46 @@ class ProfileStudents(ctk.CTkFrame):
                                  font=ctk.CTkFont(family="Inter", size=14),
                                  fg_color="transparent", text_color="#ffffff",
                                  hover_color="#22259c", width=150, height=40,
-                                 corner_radius=0, command=self.back_to_dashboard)
+                                 corner_radius=8, command=self.back_to_dashboard)
         back_btn.pack(side="left", padx=20, pady=15)
 
         title = ctk.CTkLabel(top_bar, text="Profile Students",
-                             font=ctk.CTkFont(family="Inter", size=36, weight="bold"),
-                             text_color="#ffffff")
+                              font=ctk.CTkFont(family="Inter", size=36, weight="bold"),
+                              text_color="#ffffff")
         title.pack(side="left", expand=True, padx=(0, 100))
 
-        logo_placeholder = ctk.CTkLabel(top_bar, text="▲\n▬",
-                                        font=ctk.CTkFont(family="Inter", size=18),
-                                        text_color="#122aff")
-        logo_placeholder.pack(side="right", padx=30)
+        from PIL import Image
+        import os
+        logo_path = os.path.abspath("assets/logo.png")
+        if os.path.exists(logo_path):
+            logo_img = Image.open(logo_path)
+            ctk_logo = ctk.CTkImage(light_image=logo_img, dark_image=logo_img, size=(55, 55))
+            logo_lbl = ctk.CTkLabel(top_bar, image=ctk_logo, text="")
+            logo_lbl.pack(side="right", padx=30)
+        else:
+            logo_placeholder = ctk.CTkLabel(top_bar, text="▲\n▬",
+                                            font=ctk.CTkFont(family="Inter", size=18),
+                                            text_color="#122aff")
+            logo_placeholder.pack(side="right", padx=30)
 
         tab_selector_frame = ctk.CTkFrame(self, fg_color="transparent")
         tab_selector_frame.pack(fill="x", pady=(20, 10))
 
-        tab_pill = ctk.CTkFrame(tab_selector_frame, fg_color="#cbd5e1", width=310, height=46, corner_radius=0)
+        tab_pill = ctk.CTkFrame(tab_selector_frame, fg_color="#cbd5e1", width=310, height=46, corner_radius=23)
         tab_pill.pack(anchor="center")
         tab_pill.pack_propagate(False)
 
         self.add_tab_btn = ctk.CTkButton(tab_pill, text="Add New Student",
                                          font=ctk.CTkFont(family="Inter", size=13, weight="bold"),
                                          fg_color="#122aff", text_color="#ffffff",
-                                         corner_radius=0, height=38, width=150,
+                                         corner_radius=19, height=38, width=150,
                                          command=lambda: self.switch_tab("add"))
         self.add_tab_btn.pack(side="left", padx=(4, 2), pady=4)
 
         self.list_tab_btn = ctk.CTkButton(tab_pill, text="Student List",
                                           font=ctk.CTkFont(family="Inter", size=13, weight="bold"),
                                           fg_color="transparent", text_color="#374151",
-                                          corner_radius=0, height=38, width=150,
+                                          corner_radius=19, height=38, width=150,
                                           command=lambda: self.switch_tab("list"))
         self.list_tab_btn.pack(side="left", padx=(2, 4), pady=4)
 
@@ -87,12 +96,14 @@ class ProfileStudents(ctk.CTkFrame):
         split_card_frame.pack(fill="x", pady=(0, 15))
 
         #Left Card
-        left_card = ctk.CTkFrame(split_card_frame, fg_color="#cbd5e1", corner_radius=0, height=160)
+        left_card = ctk.CTkFrame(split_card_frame, fg_color="#ffffff", corner_radius=16, border_width=1, border_color="#cbd5e1", height=160)
         left_card.pack(side="left", fill="x", expand=True, padx=(0, 15))
         left_card.pack_propagate(False)
 
-        accent_l = ctk.CTkFrame(left_card, width=8, fg_color="#15165e", corner_radius=0)
-        accent_l.pack(side="left", fill="y")
+        accent_container_l = ctk.CTkFrame(left_card, width=6, fg_color="transparent")
+        accent_container_l.pack(side="left", fill="y", padx=(12, 0), pady=12)
+        accent_l = ctk.CTkFrame(accent_container_l, width=6, fg_color="#15165e", corner_radius=3)
+        accent_l.pack(fill="both", expand=True)
 
         inner_l = ctk.CTkFrame(left_card, fg_color="transparent")
         inner_l.pack(fill="both", expand=True, padx=15, pady=12)
@@ -108,12 +119,14 @@ class ProfileStudents(ctk.CTkFrame):
         self.mname.pack(fill="x", pady=4)
 
         #Right Card 
-        right_card = ctk.CTkFrame(split_card_frame, fg_color="#cbd5e1", corner_radius=0, height=160)
+        right_card = ctk.CTkFrame(split_card_frame, fg_color="#ffffff", corner_radius=16, border_width=1, border_color="#cbd5e1", height=160)
         right_card.pack(side="right", fill="x", expand=True, padx=(15, 0))
         right_card.pack_propagate(False)
 
-        accent_r = ctk.CTkFrame(right_card, width=8, fg_color="#15165e", corner_radius=0)
-        accent_r.pack(side="left", fill="y")
+        accent_container_r = ctk.CTkFrame(right_card, width=6, fg_color="transparent")
+        accent_container_r.pack(side="left", fill="y", padx=(12, 0), pady=12)
+        accent_r = ctk.CTkFrame(accent_container_r, width=6, fg_color="#15165e", corner_radius=3)
+        accent_r.pack(fill="both", expand=True)
 
         inner_r = ctk.CTkFrame(right_card, fg_color="transparent")
         inner_r.pack(fill="both", expand=True, padx=15, pady=12)
@@ -158,12 +171,14 @@ class ProfileStudents(ctk.CTkFrame):
         self.contact.pack(fill="x", pady=4)
 
         #Address
-        address_card = ctk.CTkFrame(self.workspace_canvas, fg_color="#cbd5e1", corner_radius=0, height=60)
+        address_card = ctk.CTkFrame(self.workspace_canvas, fg_color="#ffffff", corner_radius=16, border_width=1, border_color="#cbd5e1", height=60)
         address_card.pack(fill="x", pady=(0, 20))
         address_card.pack_propagate(False)
 
-        accent_add = ctk.CTkFrame(address_card, width=8, fg_color="#15165e", corner_radius=0)
-        accent_add.pack(side="left", fill="y")
+        accent_container_add = ctk.CTkFrame(address_card, width=6, fg_color="transparent")
+        accent_container_add.pack(side="left", fill="y", padx=(12, 0), pady=12)
+        accent_add = ctk.CTkFrame(accent_container_add, width=6, fg_color="#15165e", corner_radius=3)
+        accent_add.pack(fill="both", expand=True)
 
         self.address = ctk.CTkEntry(address_card, placeholder_text="Full Address", height=35, corner_radius=0,
                                     fg_color="#ffffff", text_color="black", border_width=0)
@@ -174,12 +189,14 @@ class ProfileStudents(ctk.CTkFrame):
                      font=ctk.CTkFont(family="Inter", size=15, weight="bold"),
                      text_color="#000000").pack(anchor="w", pady=(5, 5))
 
-        parent_card = ctk.CTkFrame(self.workspace_canvas, fg_color="#cbd5e1", corner_radius=0, height=160)
+        parent_card = ctk.CTkFrame(self.workspace_canvas, fg_color="#ffffff", corner_radius=16, border_width=1, border_color="#cbd5e1", height=160)
         parent_card.pack(fill="x", pady=(0, 25))
         parent_card.pack_propagate(False)
 
-        accent_par = ctk.CTkFrame(parent_card, width=8, fg_color="#15165e", corner_radius=0)
-        accent_par.pack(side="left", fill="y")
+        accent_container_par = ctk.CTkFrame(parent_card, width=6, fg_color="transparent")
+        accent_container_par.pack(side="left", fill="y", padx=(12, 0), pady=12)
+        accent_par = ctk.CTkFrame(accent_container_par, width=6, fg_color="#15165e", corner_radius=3)
+        accent_par.pack(fill="both", expand=True)
 
         inner_p = ctk.CTkFrame(parent_card, fg_color="transparent")
         inner_p.pack(fill="both", expand=True, padx=15, pady=12)
@@ -197,7 +214,7 @@ class ProfileStudents(ctk.CTkFrame):
         #Save Button 
         save_btn = ctk.CTkButton(self.workspace_canvas, text="SAVE STUDENT PROFILE",
                                  font=ctk.CTkFont(family="Inter", size=14, weight="bold"),
-                                 height=45, width=260, corner_radius=0,
+                                 height=45, width=260, corner_radius=8,
                                  fg_color="#122aff", hover_color="#0b1eb3", text_color="#ffffff",
                                  command=self.save_student)
         save_btn.pack(anchor="center")
@@ -383,10 +400,156 @@ class ProfileStudents(ctk.CTkFrame):
         for w in self.workspace_canvas.winfo_children():
             w.destroy()
 
-        lbl = ctk.CTkLabel(self.workspace_canvas, text="Student Directory List View",
-                           font=ctk.CTkFont(family="Inter", size=24, weight="bold"),
-                           text_color="black")
-        lbl.pack(pady=100)
+        ctk.CTkLabel(self.workspace_canvas, text="STUDENT DIRECTORY",
+                     font=ctk.CTkFont(family="Inter", size=15, weight="bold"),
+                     text_color="#000000").pack(anchor="w", pady=(5, 5))
+
+        search_frame = ctk.CTkFrame(self.workspace_canvas, fg_color="#ffffff", corner_radius=16, border_width=1, border_color="#cbd5e1", height=60)
+        search_frame.pack(fill="x", pady=(0, 15))
+        search_frame.pack_propagate(False)
+
+        accent_container = ctk.CTkFrame(search_frame, width=6, fg_color="transparent")
+        accent_container.pack(side="left", fill="y", padx=(12, 0), pady=12)
+        accent = ctk.CTkFrame(accent_container, width=6, fg_color="#15165e", corner_radius=3)
+        accent.pack(fill="both", expand=True)
+
+        inner = ctk.CTkFrame(search_frame, fg_color="transparent")
+        inner.pack(fill="both", expand=True, padx=15, pady=12)
+
+        search_row = ctk.CTkFrame(inner, fg_color="transparent")
+        search_row.pack(fill="x")
+
+        self.student_search_entry = ctk.CTkEntry(search_row, placeholder_text="Search Student ID, Last Name, First Name...",
+                                                 height=40, corner_radius=8, fg_color="#f8fafc",
+                                                 border_width=1, border_color="#cbd5e1", text_color="black")
+        self.student_search_entry.pack(side="left", fill="x", expand=True)
+        # Live suggestion auto-filtering on key release
+        self.student_search_entry.bind("<KeyRelease>", lambda e: self.search_students_list())
+
+        ctk.CTkButton(search_row, text="SEARCH", width=130, height=40,
+                      fg_color="#122aff", hover_color="#0b1eb3", corner_radius=8,
+                      font=ctk.CTkFont(family="Inter", size=13, weight="bold"),
+                      command=self.search_students_list).pack(side="right", padx=(10, 0))
+
+        ctk.CTkButton(inner, text="Show All Students", width=180, height=35,
+                      fg_color="#374151", hover_color="#272f3a", corner_radius=8,
+                      font=ctk.CTkFont(family="Inter", size=12, weight="bold"),
+                      command=self.load_all_students_list).pack(anchor="w", pady=(5, 0))
+
+        table_card = ctk.CTkFrame(self.workspace_canvas, fg_color="#ffffff", corner_radius=16, border_width=1, border_color="#cbd5e1")
+        table_card.pack(fill="both", expand=True, padx=5)
+
+        accent_container_table = ctk.CTkFrame(table_card, width=6, fg_color="transparent")
+        accent_container_table.pack(side="left", fill="y", padx=(12, 0), pady=12)
+        accent_table = ctk.CTkFrame(accent_container_table, width=6, fg_color="#15165e", corner_radius=3)
+        accent_table.pack(fill="both", expand=True)
+
+        self.tree_frame = ctk.CTkFrame(table_card, fg_color="transparent", corner_radius=8)
+        self.tree_frame.pack(fill="both", expand=True, padx=15, pady=12)
+
+        import tkinter.ttk as ttk
+        columns = ("Student ID", "Last Name", "First Name", "Middle Name", "Gender", "Date of Birth", "Category", "Contact No", "Email")
+
+        # Set modern theme and style
+        style = ttk.Style()
+        style.theme_use("clam")
+        style.configure("Treeview.Heading",
+                        background="#15165e",
+                        foreground="#ffffff",
+                        font=("Inter", 11, "bold"),
+                        bordercolor="#15165e",
+                        borderwidth=0)
+        style.map("Treeview.Heading",
+                  background=[('active', '#1c1d7c')],
+                  foreground=[('active', '#ffffff')])
+        style.configure("Treeview",
+                        font=("Inter", 10),
+                        rowheight=32,
+                        fieldbackground="#ffffff",
+                        background="#ffffff",
+                        borderwidth=0)
+
+        self.tree = ttk.Treeview(self.tree_frame, columns=columns, show="headings", height=15)
+        
+        # Alternating row colors
+        self.tree.tag_configure("evenrow", background="#f8fafc")
+        self.tree.tag_configure("oddrow", background="#ffffff")
+
+        col_widths = [90, 130, 130, 100, 70, 100, 120, 120, 160]
+        for col, width in zip(columns, col_widths):
+            self.tree.heading(col, text=col)
+            self.tree.column(col, width=width, anchor="center")
+
+        scrollbar = ttk.Scrollbar(self.tree_frame, orient="vertical", command=self.tree.yview)
+        self.tree.configure(yscrollcommand=scrollbar.set)
+        scrollbar.pack(side="right", fill="y")
+        self.tree.pack(fill="both", expand=True)
+
+        self.load_all_students_list()
+
+    def load_all_students_list(self):
+        for item in self.tree.get_children():
+            self.tree.delete(item)
+
+        try:
+            conn = database.get_connection()
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT studentID, studLname, studFname, studMname, gender, dob, levelType, studContactNo, studEmail
+                FROM STUDENT
+                ORDER BY studentID DESC
+            """)
+            rows = cursor.fetchall()
+            conn.close()
+
+            for idx, row in enumerate(rows):
+                tag = "evenrow" if idx % 2 == 0 else "oddrow"
+                self.tree.insert("", "end", values=(
+                    row['studentID'], row['studLname'], row['studFname'], row['studMname'] or "—",
+                    row['gender'], row['dob'], row['levelType'] or "Unenrolled", row['studContactNo'] or "—", row['studEmail'] or "—"
+                ), tags=(tag,))
+        except Exception as e:
+            messagebox.showerror("Database Error", f"Failed to load students: {str(e)}")
+
+    def search_students_list(self):
+        keyword = self.student_search_entry.get().strip()
+        if not keyword:
+            self.load_all_students_list()
+            return
+
+        for item in self.tree.get_children():
+            self.tree.delete(item)
+
+        try:
+            conn = database.get_connection()
+            cursor = conn.cursor()
+            query = """
+                SELECT studentID, studLname, studFname, studMname, gender, dob, levelType, studContactNo, studEmail
+                FROM STUDENT
+                WHERE studentID = ? 
+                   OR studLname LIKE ? 
+                   OR studFname LIKE ? 
+                   OR studMname LIKE ?
+                ORDER BY studentID DESC
+            """
+            val = f"%{keyword}%"
+            try:
+                kid = int(keyword)
+            except ValueError:
+                kid = -1
+                
+            cursor.execute(query, (kid, val, val, val))
+            rows = cursor.fetchall()
+            conn.close()
+
+            for idx, row in enumerate(rows):
+                tag = "evenrow" if idx % 2 == 0 else "oddrow"
+                self.tree.insert("", "end", values=(
+                    row['studentID'], row['studLname'], row['studFname'], row['studMname'] or "—",
+                    row['gender'], row['dob'], row['levelType'] or "Unenrolled", row['studContactNo'] or "—", row['studEmail'] or "—"
+                ), tags=(tag,))
+        except Exception as e:
+            messagebox.showerror("Database Error", f"Failed to search students: {str(e)}")
 
     def save_student(self):
         try:
@@ -428,10 +591,7 @@ class ProfileStudents(ctk.CTkFrame):
                 entry.delete(0, 'end')
 
     def back_to_dashboard(self):
-        parent_frame = self.master
+        dashboard = self.master.master
         self.destroy()
-
-        if hasattr(parent_frame, "welcome_lbl"):
-            parent_frame.welcome_lbl.pack(fill="x", padx=40, pady=(45, 20))
-        elif hasattr(parent_frame.master, "welcome_lbl"):
-            parent_frame.master.welcome_lbl.pack(fill="x", padx=40, pady=(45, 20))
+        if hasattr(dashboard, "_show_welcome"):
+            dashboard._show_welcome()
