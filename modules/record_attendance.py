@@ -158,35 +158,45 @@ class RecordAttendance(ctk.CTkFrame):
 
         # ── LEFT PANEL ───────────────────────────────────────────────────────
         left_panel = ctk.CTkFrame(split_body, fg_color="transparent", width=480)
-        left_panel.pack(side="left", fill="y", anchor="nw")
+        left_panel.pack(side="left", fill="both", anchor="nw")
         left_panel.pack_propagate(False)
 
-        def section_label(parent, text):
-            ctk.CTkLabel(parent, text=text,
-                         font=ctk.CTkFont(family="Inter", size=12, weight="bold"),
-                         text_color="black").pack(anchor="w", pady=(8, 2))
+        def section_label(parent, text, row):
+            lbl = ctk.CTkLabel(parent, text=text,
+                               font=ctk.CTkFont(family="Inter", size=12, weight="bold"),
+                               text_color="black")
+            lbl.grid(row=row, column=0, sticky="w", pady=(8, 2))
+            return lbl
 
         # CLASS Dropdown
-        section_label(left_panel, "CLASS")
-        class_card, class_inner = self._card_frame(left_panel, height=50)
-        class_card.pack(fill="x")
-        class_card.pack_propagate(False)
-        self.class_combo = self._combo(class_inner, [], command=self.on_class_changed)
+        self.class_lbl = section_label(left_panel, "CLASS", 0)
+        self.class_card, class_inner = self._card_frame(left_panel, height=50)
+        self.class_card.grid(row=1, column=0, sticky="ew")
+        self.class_card.pack_propagate(False)
+        self.class_combo = self._combo(class_inner, [f"Grade {i}" for i in range(1, 13)], command=self.on_class_changed)
         self.class_combo.pack(fill="x")
 
+        # SECTION Dropdown
+        self.section_lbl = section_label(left_panel, "SECTION", 2)
+        self.section_card, section_inner = self._card_frame(left_panel, height=50)
+        self.section_card.grid(row=3, column=0, sticky="ew")
+        self.section_card.pack_propagate(False)
+        self.section_combo = self._combo(section_inner, ["A", "B", "C", "D"], command=self.on_section_changed)
+        self.section_combo.pack(fill="x")
+
         # TERM Dropdown
-        section_label(left_panel, "TERM")
-        term_card, term_inner = self._card_frame(left_panel, height=50)
-        term_card.pack(fill="x")
-        term_card.pack_propagate(False)
+        self.term_label_widget = section_label(left_panel, "TERM", 4)
+        self.term_card, term_inner = self._card_frame(left_panel, height=50)
+        self.term_card.grid(row=5, column=0, sticky="ew")
+        self.term_card.pack_propagate(False)
         self.term_combo = self._combo(term_inner, [], command=self.on_term_changed)
         self.term_combo.pack(fill="x")
 
         # SCHOOL YEAR Dropdown
-        section_label(left_panel, "SCHOOL YEAR")
-        sy_card, sy_inner = self._card_frame(left_panel, height=50)
-        sy_card.pack(fill="x")
-        sy_card.pack_propagate(False)
+        self.sy_lbl = section_label(left_panel, "SCHOOL YEAR", 6)
+        self.sy_card, sy_inner = self._card_frame(left_panel, height=50)
+        self.sy_card.grid(row=7, column=0, sticky="ew")
+        self.sy_card.pack_propagate(False)
         self.sy_combo = self._combo(sy_inner,
             ["2018-2019", "2019-2020", "2020-2021", "2021-2022", "2022-2023",
              "2023-2024", "2024-2025", "2025-2026", "2026-2027", "2027-2028",
@@ -194,39 +204,55 @@ class RecordAttendance(ctk.CTkFrame):
         self.sy_combo.pack(fill="x")
 
         # SUBJECT Dropdown
-        section_label(left_panel, "SUBJECT")
-        sub_card, sub_inner = self._card_frame(left_panel, height=50)
-        sub_card.pack(fill="x")
-        sub_card.pack_propagate(False)
+        self.sub_lbl = section_label(left_panel, "SUBJECT", 8)
+        self.sub_card, sub_inner = self._card_frame(left_panel, height=50)
+        self.sub_card.grid(row=9, column=0, sticky="ew")
+        self.sub_card.pack_propagate(False)
         self.subject_combo = self._combo(sub_inner, [], command=self.on_subject_changed)
         self.subject_combo.pack(fill="x")
 
-        # LIVE TIME Displays
-        section_label(left_panel, "LIVE TIME")
-        time_card, time_inner = self._card_frame(left_panel, height=50)
-        time_card.pack(fill="x")
-        time_card.pack_propagate(False)
-        self.time_label = ctk.CTkLabel(time_inner, text="",
-                                       font=ctk.CTkFont(family="Inter", size=14, weight="bold"),
-                                       text_color="black")
-        self.time_label.pack(side="left", padx=15, pady=8)
-        self.update_clock()
+        # OK button trigger
+        self.ok_btn = ctk.CTkButton(left_panel, text="OK",
+                                    font=ctk.CTkFont(family="Inter", size=13, weight="bold"),
+                                    height=40, corner_radius=8,
+                                    fg_color="#122aff", hover_color="#0b1eb3", text_color="#ffffff",
+                                    command=self.on_ok_clicked)
+        self.ok_btn.grid(row=10, column=0, sticky="ew", pady=(15, 0))
 
-        # Load Students trigger
-        ctk.CTkButton(left_panel, text="🔍 LOAD STUDENTS",
-                      font=ctk.CTkFont(family="Inter", size=13, weight="bold"),
-                      height=40, corner_radius=8,
-                      fg_color="#122aff", hover_color="#0b1eb3", text_color="#ffffff",
-                      command=self.load_students
-                      ).pack(fill="x", pady=(18, 0))
+        # CLASS DETAILS Card
+        self.details_lbl = section_label(left_panel, "CLASS DETAILS", 11)
+        self.details_card, self.details_inner = self._card_frame(left_panel)
+        self.details_card.grid(row=12, column=0, sticky="nsew", pady=(0, 5))
+        self.details_text_label = ctk.CTkLabel(
+            self.details_inner,
+            text="CLASS: —\nSECTION: —\nTERM: —\nSCHOOL YEAR: —\nSUBJECT: —\nTIME: —",
+            font=ctk.CTkFont(family="Inter", size=12, weight="bold"),
+            text_color="black",
+            justify="left",
+            anchor="w"
+        )
+        self.details_text_label.pack(fill="both", expand=True, padx=15, pady=10)
+
+        left_panel.columnconfigure(0, weight=1)
+        left_panel.rowconfigure(12, weight=1)
 
         # ── RIGHT PANEL (ROSTER) ─────────────────────────────────────────────
         right_panel = ctk.CTkFrame(split_body, fg_color="transparent")
         right_panel.pack(side="right", fill="both", expand=True, padx=(20, 0))
 
-        ctk.CTkLabel(right_panel, text="STUDENTS",
+        # Header for Right Panel containing STUDENTS label on left and military live time on right
+        right_header = ctk.CTkFrame(right_panel, fg_color="transparent")
+        right_header.pack(fill="x", pady=(0, 4))
+
+        ctk.CTkLabel(right_header, text="STUDENTS",
                      font=ctk.CTkFont(family="Inter", size=14, weight="bold"),
-                     text_color="black").pack(anchor="w", pady=(0, 4))
+                     text_color="black").pack(side="left")
+
+        self.live_time_label = ctk.CTkLabel(right_header, text="",
+                                             font=ctk.CTkFont(family="Inter", size=14, weight="bold"),
+                                             text_color="black")
+        self.live_time_label.pack(side="right")
+        self.update_clock()
 
         sheet_outer = ctk.CTkFrame(right_panel, fg_color="#ffffff", corner_radius=16, border_width=1, border_color="#cbd5e1")
         sheet_outer.pack(fill="both", expand=True)
@@ -284,19 +310,22 @@ class RecordAttendance(ctk.CTkFrame):
 
         # Initialise fields to Empty and Readonly
         self.class_combo.set("")
+        self.section_combo.set("")
         self.term_combo.set("")
         self.sy_combo.set("")
         self.subject_combo.set("")
         
         self.update_combo_style(self.class_combo)
+        self.update_combo_style(self.section_combo)
         self.update_combo_style(self.term_combo)
         self.update_combo_style(self.sy_combo)
         self.update_combo_style(self.subject_combo)
 
-        # Dynamic choices loader
-        self.load_class_options()
+        # Set Grade 7 as default class
+        self.class_combo.set("Grade 7")
+        self.on_class_changed("Grade 7")
 
-        # Render clean initial empty states (No default students text)
+        # Render clean initial empty states
         self.show_roster_placeholder()
 
     def update_combo_style(self, combo):
@@ -307,51 +336,42 @@ class RecordAttendance(ctk.CTkFrame):
             combo.configure(text_color="#777777", font=ctk.CTkFont(family="Inter", size=13, weight="normal"))
 
     def load_class_options(self):
-        try:
-            conn = database.get_connection()
-            cursor = conn.cursor()
-            cursor.execute("""
-                SELECT DISTINCT gradeLevel, section 
-                FROM ENROLLMENT 
-                WHERE enrStatus = 'Active' 
-                ORDER BY gradeLevel, section
-            """)
-            rows = cursor.fetchall()
-            conn.close()
-            
-            options = []
-            for r in rows:
-                options.append(f"{r['gradeLevel']} - {r['section']}")
-                
-            if not options:
-                # Premium fallback list if no active database enrollments yet
-                options = [
-                    "Grade 1 - A", "Grade 2 - A", "Grade 3 - A", "Grade 4 - A", "Grade 5 - A", "Grade 6 - A",
-                    "Grade 7 - A", "Grade 8 - A", "Grade 9 - A", "Grade 10 - A",
-                    "Grade 11 - STEM-A", "Grade 11 - ABM-A", "Grade 11 - HUMSS-A",
-                    "Grade 12 - STEM-A", "Grade 12 - ABM-A", "Grade 12 - HUMSS-A"
-                ]
-            self.class_combo.configure(values=options)
-        except Exception:
-            pass
+        # Deprecated because class choices are now cleanly pre-loaded statically Grade 1 - 12
+        pass
 
     def on_class_changed(self, choice):
         self.update_combo_style(self.class_combo)
         if not choice:
+            self.section_combo.configure(values=[])
+            self.section_combo.set("")
             self.term_combo.configure(values=[])
             self.term_combo.set("")
+            self.update_combo_style(self.section_combo)
             self.update_combo_style(self.term_combo)
             return
 
-        # Dynamically set TERM options matching enrollment rules
-        if any(f"Grade {i} " in choice for i in range(1, 11)):
-            self.term_combo.configure(values=["Full Year"])
-            self.term_combo.set("Full Year")
-        else:
-            self.term_combo.configure(values=["1st Semester", "2nd Semester"])
+        is_shs = (choice in ["Grade 11", "Grade 12"])
+        if is_shs:
+            self.section_combo.configure(values=["STEM-A", "ABM-A", "HUMSS-A"])
+            self.section_combo.set("STEM-A")
+            self.term_label_widget.grid(row=4, column=0, sticky="w", pady=(8, 2))
+            self.term_card.grid(row=5, column=0, sticky="ew")
+            self.term_combo.configure(state="readonly", values=["1st Semester", "2nd Semester"])
             self.term_combo.set("1st Semester")
-        
+        else:
+            self.section_combo.configure(values=["A", "B", "C", "D"])
+            self.section_combo.set("A")
+            self.term_label_widget.grid_remove()
+            self.term_card.grid_remove()
+            self.term_combo.configure(state="disabled", values=["Full Year"])
+            self.term_combo.set("Full Year")
+
+        self.update_combo_style(self.section_combo)
         self.update_combo_style(self.term_combo)
+        self.load_subjects_for_class()
+
+    def on_section_changed(self, choice):
+        self.update_combo_style(self.section_combo)
         self.load_subjects_for_class()
 
     def on_term_changed(self, choice):
@@ -365,16 +385,13 @@ class RecordAttendance(ctk.CTkFrame):
         self.update_combo_style(self.subject_combo)
 
     def load_subjects_for_class(self):
-        choice = self.class_combo.get()
-        if not choice:
+        grade = self.class_combo.get().strip()
+        section = self.section_combo.get().strip()
+        if not grade or not section:
             self.subject_combo.configure(values=[])
             self.subject_combo.set("")
             self.update_combo_style(self.subject_combo)
             return
-
-        parts = choice.split(" - ")
-        grade = parts[0].strip()
-        section = parts[1].strip() if len(parts) > 1 else ""
 
         try:
             conn = database.get_connection()
@@ -429,31 +446,53 @@ class RecordAttendance(ctk.CTkFrame):
         self.student_row_frames.clear()
         
         lbl = ctk.CTkLabel(self.roster_rows_frame,
-                           text="Please select Class, Term, School Year, and Subject,\nthen click LOAD STUDENTS to retrieve the active class roster.",
+                           text="Please select Class, Section, Term, School Year, and Subject,\nthen click OK to retrieve the active class roster.",
                            font=ctk.CTkFont(family="Inter", size=13, weight="bold"),
                            text_color="#64748b",
                            justify="center")
         lbl.pack(pady=100)
 
-    def load_students(self):
-        choice = self.class_combo.get()
-        term = self.term_combo.get()
-        sy = self.sy_combo.get()
-        sub = self.subject_combo.get()
+    def on_ok_clicked(self):
+        grade = self.class_combo.get().strip()
+        section = self.section_combo.get().strip()
+        term = self.term_combo.get().strip()
+        sy = self.sy_combo.get().strip()
+        sub = self.subject_combo.get().strip()
 
-        if not choice or not term or not sy or not sub:
+        if not grade or not section or not term or not sy or not sub:
             messagebox.showwarning("Warning", "Please complete all filters first!")
             return
 
-        parts = choice.split(" - ")
-        grade = parts[0].strip()
-        section = parts[1].strip() if len(parts) > 1 else ""
+        # Display details in the CLASS DETAILS card
+        mil_time = datetime.now().strftime("%H:%M")
+        details_txt = (
+            f"CLASS: {grade}\n"
+            f"SECTION: {section}\n"
+            f"TERM: {term}\n"
+            f"SCHOOL YEAR: {sy}\n"
+            f"SUBJECT: {sub}\n"
+            f"TIME: {mil_time}"
+        )
+        self.details_text_label.configure(text=details_txt)
+
+        # Retrieve the student roster automatically
+        self.load_students()
+
+    def load_students(self):
+        grade = self.class_combo.get().strip()
+        section = self.section_combo.get().strip()
+        term = self.term_combo.get().strip()
+        sy = self.sy_combo.get().strip()
+        sub = self.subject_combo.get().strip()
+
+        if not grade or not section or not term or not sy or not sub:
+            return
 
         try:
             conn = database.get_connection()
             cursor = conn.cursor()
             
-            # Query active student enrollments matching class and subject
+            # Query active student enrollments matching class, section, term, sy, and subject
             cursor.execute("""
                 SELECT DISTINCT s.studentID, s.studLname, s.studFname, s.studMname, d.detailID
                 FROM STUDENT s
