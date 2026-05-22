@@ -4,36 +4,48 @@ from tkinter import messagebox
 import config
 
 
-class Dashboard(ctk.CTk):
-    def __init__(self, user_role="Admin", user_name="User"):
-        super().__init__()
-        self.overrideredirect(False)
-        self.resizable(True, True)
-        self.minsize(1280, 720)
-        self.title(f"{config.WINDOW_TITLE} - Dashboard")
-        self.geometry("1280x720")
-        self.configure(fg_color="#e4e4e4")
+class Dashboard(ctk.CTkFrame):
+    def __init__(self, parent=None, user_role="Admin", user_name="User"):
+        if parent is None:
+            self.temp_root = ctk.CTk()
+            parent = self.temp_root
+            is_standalone = True
+        else:
+            is_standalone = False
+
+        super().__init__(parent, fg_color="#e4e4e4", corner_radius=0)
+        self.pack(fill="both", expand=True)
+
+        root = parent.winfo_toplevel()
+        root.overrideredirect(False)
+        root.resizable(True, True)
+        root.minsize(1280, 720)
+        root.title(f"{config.WINDOW_TITLE} - Dashboard")
+        root.configure(fg_color="#e4e4e4")
+
+        if is_standalone:
+            root.geometry("1280x720")
+            screen_width = root.winfo_screenwidth()
+            screen_height = root.winfo_screenheight()
+            x = (screen_width - 1280) // 2
+            y = (screen_height - 720) // 2
+            root.geometry(f"1280x720+{x}+{y}")
+
         self.user_role = user_role
         self.user_name = user_name
-        self.center_window()
         self.create_dashboard_ui()
 
-    def center_window(self):
-        screen_width = self.winfo_screenwidth()
-        screen_height = self.winfo_screenheight()
-        x = (screen_width - 1280) // 2
-        y = (screen_height - 720) // 2
-        self.geometry(f"1280x720+{x}+{y}")
+    def mainloop(self, *args, **kwargs):
+        if hasattr(self, "temp_root"):
+            self.temp_root.mainloop(*args, **kwargs)
+        else:
+            super().mainloop(*args, **kwargs)
 
     def create_dashboard_ui(self):
-        self.grid_columnconfigure(0, weight=0)
-        self.grid_columnconfigure(1, weight=1)
-        self.grid_rowconfigure(0, weight=1)
-
         # ── Sidebar ───────────────────────────────────────────────────────────
         sidebar = ctk.CTkFrame(self, width=250, fg_color="#15165e", corner_radius=0)
-        sidebar.grid(row=0, column=0, sticky="nsew")
-        sidebar.grid_propagate(False)
+        sidebar.pack(side="left", fill="y")
+        sidebar.pack_propagate(False)
 
         # Logo
         ctk.CTkLabel(sidebar, text="ABC",
@@ -89,7 +101,7 @@ class Dashboard(ctk.CTk):
 
         # ── Main Content ──────────────────────────────────────────────────────
         self.main_content = ctk.CTkFrame(self, fg_color="#e4e4e4", corner_radius=0)
-        self.main_content.grid(row=0, column=1, sticky="nsew")
+        self.main_content.pack(side="right", fill="both", expand=True)
 
         self._show_welcome()
 
@@ -261,31 +273,22 @@ class Dashboard(ctk.CTk):
 
     def logout(self):
         if messagebox.askyesno("Logout", "Are you sure you want to logout?"):
-            self.destroy()
+            root = self.winfo_toplevel()
+            if hasattr(self, "temp_root"):
+                self.temp_root.destroy()
+            else:
+                self.destroy()
+                # Restore login window properties
+                root.geometry("1280x720")
+                root.resizable(False, False)
+                root.title(config.WINDOW_TITLE)
+                root.configure(fg_color="#e5e5e5")
+                if hasattr(root, "center_window"):
+                    root.center_window()
+                if hasattr(root, "create_login_ui"):
+                    root.create_login_ui()
 
 
 if __name__ == "__main__":
     app = Dashboard(user_role="Admin/Staff", user_name="Maria Santos")
     app.mainloop()
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

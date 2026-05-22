@@ -195,10 +195,13 @@ class LoginWindow(ctk.CTk):
             self.after(80, self.animate_gif)
 
     def launch_dashboard(self, role, name):
-        self.destroy()
+        if self.loading_label:
+            self.loading_label.destroy()
+        for w in self.winfo_children():
+            w.destroy()
+
         from dashboard import Dashboard
-        dashboard = Dashboard(user_role=role, user_name=name)
-        dashboard.mainloop()
+        self.dashboard_frame = Dashboard(self, user_role=role, user_name=name)
 
 
 if __name__ == "__main__":
