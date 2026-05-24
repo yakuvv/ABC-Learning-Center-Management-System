@@ -1,27 +1,28 @@
 # reset_database.py
+import os
 import database
+from database import DB_NAME, clear_all_data, init_database
 
-print("WARNING: This will DELETE ALL data in your database!")
+BACKUP_NAME = "abc_learning_center_backup.db"
 
-confirm = input("Type 'YES' to continue and reset database: ")
 
-if confirm == "YES":
-    conn = database.get_connection()
-    cursor = conn.cursor()
+def reset_all():
+    """Clear every table in the main DB and backup copy."""
+    if not os.path.exists(DB_NAME):
+        init_database()
+    clear_all_data(DB_NAME)
+    print(f"Cleared all data from '{DB_NAME}'.")
 
-    # Delete data in correct order (respect foreign keys)
-    cursor.execute("DELETE FROM RECEIPT")
-    cursor.execute("DELETE FROM PAYMENT")
-    cursor.execute("DELETE FROM GRADE")
-    cursor.execute("DELETE FROM ATTENDANCE")
-    cursor.execute("DELETE FROM DETAIL")
-    cursor.execute("DELETE FROM ENROLLMENT")
-    cursor.execute("DELETE FROM PARENT")
-    cursor.execute("DELETE FROM STUDENT")
-    # Don't delete STAFF and TUTOR (you need login accounts)
+    if os.path.exists(BACKUP_NAME):
+        clear_all_data(BACKUP_NAME)
+        print(f"Cleared all data from '{BACKUP_NAME}'.")
 
-    conn.commit()
-    conn.close()
-    print("✅ Database has been reset successfully! All student data cleared.")
-else:
-    print("Cancelled.")
+
+if __name__ == "__main__":
+    print("WARNING: This will DELETE ALL data in your database(s)!")
+    confirm = input("Type 'YES' to continue and reset database: ")
+    if confirm == "YES":
+        reset_all()
+        print("Database has been reset successfully! Schema kept; all tables are empty.")
+    else:
+        print("Cancelled.")
