@@ -7,6 +7,8 @@ from datetime import datetime
 from PIL import Image
 import database
 from utils.pdf_generator import generate_grades_pdf
+from utils.modern_entry import ModernEntry
+from utils.modern_combo import ModernCombo
 
 class ManageGrades(ctk.CTkFrame):
     def __init__(self, parent):
@@ -26,18 +28,7 @@ class ManageGrades(ctk.CTkFrame):
         self.create_ui()
 
     def _combo(self, parent, values, **kwargs):
-        return ctk.CTkComboBox(
-            parent,
-            values=values,
-            height=35, corner_radius=0,
-            fg_color="#ffffff", text_color="#000000",
-            button_color="#000000", button_hover_color="#222222",
-            dropdown_fg_color="#ffffff", dropdown_text_color="black",
-            dropdown_hover_color="#cbd5e1",
-            border_width=0,
-            state="readonly",
-            **kwargs
-        )
+        return ModernCombo(parent, values=values, **kwargs)
 
     def create_ui(self):
         # Top bar
@@ -168,13 +159,10 @@ class ManageGrades(ctk.CTkFrame):
         controls_row.pack(fill="x", pady=(0, 10))
 
         # Search Bar on the Left
-        self.class_search_entry = ctk.CTkEntry(
+        self.class_search_entry = ModernEntry(
             controls_row,
             placeholder_text="🔍 Filter sheet below by student name or school ID...",
-            height=40, corner_radius=8,
-            fg_color="#ffffff", text_color="black",
-            border_width=1, border_color="#cbd5e1",
-            font=ctk.CTkFont(family="Inter", size=13)
+            height=32, font=ctk.CTkFont(family="Inter", size=13)
         )
         self.class_search_entry.pack(side="left", fill="x", expand=True, padx=(0, 15))
         self.class_search_entry.bind("<KeyRelease>", self.filter_class_sheet)
@@ -238,13 +226,10 @@ class ManageGrades(ctk.CTkFrame):
             text_color="#15165e"
         ).pack(anchor="w", pady=(0, 5))
 
-        self.ind_search_entry = ctk.CTkEntry(
+        self.ind_search_entry = ModernEntry(
             search_inner,
             placeholder_text="Type Student Name or Student ID...",
-            height=40, corner_radius=8,
-            fg_color="#f8fafc", text_color="black",
-            border_width=1, border_color="#cbd5e1",
-            font=ctk.CTkFont(family="Inter", size=13)
+            height=32, font=ctk.CTkFont(family="Inter", size=13)
         )
         self.ind_search_entry.pack(fill="x")
         self.ind_search_entry.bind("<KeyRelease>", self.on_ind_search_key)
@@ -463,7 +448,7 @@ class ManageGrades(ctk.CTkFrame):
                 text_color="#475569"
             ).pack(side="left")
 
-            self.rc_term_combo = ctk.CTkComboBox(filter_frame, values=["1st Semester", "2nd Semester"], width=130, height=28, state="readonly")
+            self.rc_term_combo = ModernCombo(filter_frame, values=["1st Semester", "2nd Semester"], width=130, height=28)
             self.rc_term_combo.set(semester if semester else "1st Semester")
             self.rc_term_combo.pack(side="left", padx=5)
 
