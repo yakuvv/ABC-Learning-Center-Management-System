@@ -3,6 +3,7 @@ from tkinter import messagebox, Toplevel, ttk
 import database
 import calendar
 from datetime import datetime
+from utils.modern_entry import ModernEntry
 
 
 class ProfileStudents(ctk.CTkFrame):
@@ -108,15 +109,15 @@ class ProfileStudents(ctk.CTkFrame):
         inner_l = ctk.CTkFrame(left_card, fg_color="transparent")
         inner_l.pack(fill="both", expand=True, padx=15, pady=12)
 
-        self.fname = ctk.CTkEntry(inner_l, placeholder_text="First Name", height=35, corner_radius=0,
-                                  fg_color="#ffffff", text_color="black", border_width=0)
-        self.fname.pack(fill="x", pady=4)
-        self.lname = ctk.CTkEntry(inner_l, placeholder_text="Last Name", height=35, corner_radius=0,
-                                  fg_color="#ffffff", text_color="black", border_width=0)
-        self.lname.pack(fill="x", pady=4)
-        self.mname = ctk.CTkEntry(inner_l, placeholder_text="Middle Name", height=35, corner_radius=0,
-                                  fg_color="#ffffff", text_color="black", border_width=0)
-        self.mname.pack(fill="x", pady=4)
+        self.fname = ModernEntry(inner_l, placeholder_text="First Name",
+                                  height=32, font=ctk.CTkFont(family="Inter", size=13))
+        self.fname.pack(fill="x", pady=(4, 0))
+        self.lname = ModernEntry(inner_l, placeholder_text="Last Name",
+                                 height=32, font=ctk.CTkFont(family="Inter", size=13))
+        self.lname.pack(fill="x", pady=(4, 0))
+        self.mname = ModernEntry(inner_l, placeholder_text="Middle Name",
+                                 height=32, font=ctk.CTkFont(family="Inter", size=13))
+        self.mname.pack(fill="x", pady=(4, 0))
 
         #Right Card 
         right_card = ctk.CTkFrame(split_card_frame, fg_color="#ffffff", corner_radius=16, border_width=1, border_color="#cbd5e1", height=160)
@@ -163,12 +164,12 @@ class ProfileStudents(ctk.CTkFrame):
                                          command=self.popup_flutter_calendar)
         dob_dropdown_btn.pack(side="right")
 
-        self.email = ctk.CTkEntry(inner_r, placeholder_text="Email Address", height=35, corner_radius=0,
-                                  fg_color="#ffffff", text_color="black", border_width=0)
-        self.email.pack(fill="x", pady=4)
-        self.contact = ctk.CTkEntry(inner_r, placeholder_text="Contact Number", height=35, corner_radius=0,
-                                    fg_color="#ffffff", text_color="black", border_width=0)
-        self.contact.pack(fill="x", pady=4)
+        self.email = ModernEntry(inner_r, placeholder_text="Email Address",
+                                 height=32, font=ctk.CTkFont(family="Inter", size=13))
+        self.email.pack(fill="x", pady=(4, 0))
+        self.contact = ModernEntry(inner_r, placeholder_text="Contact Number",
+                                   height=32, font=ctk.CTkFont(family="Inter", size=13))
+        self.contact.pack(fill="x", pady=(4, 0))
 
         #Address
         address_card = ctk.CTkFrame(self.workspace_canvas, fg_color="#ffffff", corner_radius=16, border_width=1, border_color="#cbd5e1", height=60)
@@ -180,9 +181,9 @@ class ProfileStudents(ctk.CTkFrame):
         accent_add = ctk.CTkFrame(accent_container_add, width=6, fg_color="#15165e", corner_radius=3)
         accent_add.pack(fill="both", expand=True)
 
-        self.address = ctk.CTkEntry(address_card, placeholder_text="Full Address", height=35, corner_radius=0,
-                                    fg_color="#ffffff", text_color="black", border_width=0)
-        self.address.pack(fill="x", padx=15, pady=12)
+        self.address = ModernEntry(address_card, placeholder_text="Full Address",
+                                   height=32, font=ctk.CTkFont(family="Inter", size=13))
+        self.address.pack(fill="x", padx=15, pady=10)
 
         #Parent/Guardian 
         ctk.CTkLabel(self.workspace_canvas, text="PARENT/GUARDIAN INFORMATION",
@@ -201,15 +202,15 @@ class ProfileStudents(ctk.CTkFrame):
         inner_p = ctk.CTkFrame(parent_card, fg_color="transparent")
         inner_p.pack(fill="both", expand=True, padx=15, pady=12)
 
-        self.par_name = ctk.CTkEntry(inner_p, placeholder_text="Parent/Guardian Full Name", height=35,
-                                     corner_radius=0, fg_color="#ffffff", text_color="black", border_width=0)
-        self.par_name.pack(fill="x", pady=4)
-        self.par_contact = ctk.CTkEntry(inner_p, placeholder_text="Parent/Guardian Contact Information", height=35,
-                                        corner_radius=0, fg_color="#ffffff", text_color="black", border_width=0)
-        self.par_contact.pack(fill="x", pady=4)
-        self.relationship = ctk.CTkEntry(inner_p, placeholder_text="Relationship (Mother, Father, etc.)", height=35,
-                                         corner_radius=0, fg_color="#ffffff", text_color="black", border_width=0)
-        self.relationship.pack(fill="x", pady=4)
+        self.par_name = ModernEntry(inner_p, placeholder_text="Parent/Guardian Full Name",
+                                    height=32, font=ctk.CTkFont(family="Inter", size=13))
+        self.par_name.pack(fill="x", pady=(4, 0))
+        self.par_contact = ModernEntry(inner_p, placeholder_text="Parent/Guardian Contact Information",
+                                       height=32, font=ctk.CTkFont(family="Inter", size=13))
+        self.par_contact.pack(fill="x", pady=(4, 0))
+        self.relationship = ModernEntry(inner_p, placeholder_text="Relationship (Mother, Father, etc.)",
+                                        height=32, font=ctk.CTkFont(family="Inter", size=13))
+        self.relationship.pack(fill="x", pady=(4, 0))
 
         #Save Button 
         save_btn = ctk.CTkButton(self.workspace_canvas, text="SAVE STUDENT PROFILE",
@@ -587,8 +588,10 @@ class ProfileStudents(ctk.CTkFrame):
 
         for entry in [self.fname, self.lname, self.mname, self.dob, self.address,
                       self.contact, self.email, self.par_name, self.par_contact, self.relationship]:
-            if isinstance(entry, ctk.CTkEntry):
+            try:
                 entry.delete(0, 'end')
+            except Exception:
+                pass
 
     def back_to_dashboard(self):
         dashboard = self.master.master
