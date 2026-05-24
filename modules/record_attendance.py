@@ -94,6 +94,7 @@ class RecordAttendance(ctk.CTkFrame):
         self.student_row_widgets = {}
         self.student_row_frames = {}
         self.attendance_vars = {}
+        self.attendance_times = {}
         self.loaded_detail_ids = {}
 
         self.create_ui()
@@ -468,6 +469,7 @@ class RecordAttendance(ctk.CTkFrame):
         for w in self.roster_rows_frame.winfo_children():
             w.destroy()
         self.attendance_vars.clear()
+        self.attendance_times.clear()
         self.student_row_widgets.clear()
         self.student_row_frames.clear()
 
@@ -531,6 +533,7 @@ class RecordAttendance(ctk.CTkFrame):
                 for w in self.roster_rows_frame.winfo_children():
                     w.destroy()
                 self.attendance_vars.clear()
+                self.attendance_times.clear()
                 self.student_row_widgets.clear()
                 self.student_row_frames.clear()
 
@@ -577,6 +580,7 @@ class RecordAttendance(ctk.CTkFrame):
         for w in self.roster_rows_frame.winfo_children():
             w.destroy()
         self.attendance_vars.clear()
+        self.attendance_times.clear()
         self.student_row_widgets.clear()
         self.student_row_frames.clear()
 
@@ -670,28 +674,33 @@ class RecordAttendance(ctk.CTkFrame):
         row_frame = self.student_row_frames.get(name)
         
         # Interactive live border coloring and Status pill formatting!
+        click_time = datetime.now().strftime("%I:%M %p")
         if p_var.get():
             status_box.configure(fg_color="#00bf63")
             status_lbl.configure(text="PRESENT", text_color="white")
-            time_lbl.configure(text=datetime.now().strftime("%I:%M %p"), text_color="#0f172a")
+            time_lbl.configure(text=click_time, text_color="#0f172a")
+            self.attendance_times[name] = click_time
             if row_frame:
                 row_frame.configure(border_color="#00bf63", border_width=2)
         elif a_var.get():
             status_box.configure(fg_color="#e20000")
             status_lbl.configure(text="ABSENT", text_color="white")
-            time_lbl.configure(text=datetime.now().strftime("%I:%M %p"), text_color="#0f172a")
+            time_lbl.configure(text=click_time, text_color="#0f172a")
+            self.attendance_times[name] = click_time
             if row_frame:
                 row_frame.configure(border_color="#e20000", border_width=2)
         elif l_var.get():
             status_box.configure(fg_color="#122aff")
             status_lbl.configure(text="LATE", text_color="white")
-            time_lbl.configure(text=datetime.now().strftime("%I:%M %p"), text_color="#0f172a")
+            time_lbl.configure(text=click_time, text_color="#0f172a")
+            self.attendance_times[name] = click_time
             if row_frame:
                 row_frame.configure(border_color="#122aff", border_width=2)
         else:
             status_box.configure(fg_color="#f1f5f9")
             status_lbl.configure(text="", text_color="#64748b")
             time_lbl.configure(text="—", text_color="#64748b")
+            self.attendance_times.pop(name, None)
             if row_frame:
                 row_frame.configure(border_color="#cbd5e1", border_width=1)
 
@@ -761,6 +770,15 @@ class RecordAttendance(ctk.CTkFrame):
                     skipped.append(name)
                     continue
 
+                att_time = self.attendance_times.get(name)
+                if not att_time and name in self.student_row_widgets:
+                    _, _, time_lbl = self.student_row_widgets[name]
+                    label_time = time_lbl.cget("text")
+                    if label_time and label_time != "—":
+                        att_time = label_time
+                if not att_time:
+                    att_time = datetime.now().strftime("%I:%M %p")
+
                 # Insert or update attendance status
                 cursor.execute("""
                     SELECT attendanceID FROM ATTENDANCE
@@ -770,14 +788,14 @@ class RecordAttendance(ctk.CTkFrame):
 
                 if existing:
                     cursor.execute("""
-                        UPDATE ATTENDANCE SET attStatus = ?
+                        UPDATE ATTENDANCE SET attStatus = ?, attTime = ?
                         WHERE detailID = ? AND attDate = ?
-                    """, (status, detail_id, att_date))
+                    """, (status, att_time, detail_id, att_date))
                 else:
                     cursor.execute("""
-                        INSERT INTO ATTENDANCE (detailID, attDate, attStatus)
-                        VALUES (?, ?, ?)
-                    """, (detail_id, att_date, status))
+                        INSERT INTO ATTENDANCE (detailID, attDate, attTime, attStatus)
+                        VALUES (?, ?, ?, ?)
+                    """, (detail_id, att_date, att_time, status))
 
                 saved += 1
 
@@ -951,7 +969,7 @@ class RecordAttendance(ctk.CTkFrame):
                   background=[("selected","#e0e7ff")],
                   foreground=[("selected","#15165e")])
 
-        cols = ("#", "Learner ID", "Student Name", "Date", "Status")
+        cols = ("#", "Learner ID", "Student Name", "Date", "Time", "Status")
         self.hist_tree = ttk.Treeview(tree_frame, columns=cols, show="headings",
                                       height=18, style="Hist.Treeview")
         self.hist_tree["displaycolumns"] = cols
@@ -966,8 +984,9 @@ class RecordAttendance(ctk.CTkFrame):
         self._hist_col_specs = [
             ("#", 42, "center", False),
             ("Learner ID", 118, "w", False),
-            ("Student Name", 200, "w", True),
-            ("Date", 108, "center", False),
+            ("Student Name", 180, "w", True),
+            ("Date", 100, "center", False),
+            ("Time", 100, "center", False),
             ("Status", 88, "center", False),
         ]
         for col, width, anchor, stretch in self._hist_col_specs:
@@ -997,12 +1016,13 @@ class RecordAttendance(ctk.CTkFrame):
         total_w = tree.winfo_width()
         if total_w < 200:
             return
-        fixed = 42 + 118 + 108 + 88 + 24  # #, learner, date, status + padding
-        name_w = max(total_w - fixed, 140)
+        fixed = 42 + 118 + 100 + 100 + 88 + 24  # #, learner, date, time, status + padding
+        name_w = max(total_w - fixed, 120)
         tree.column("#", width=42, minwidth=42, stretch=False)
         tree.column("Learner ID", width=118, minwidth=100, stretch=False)
-        tree.column("Student Name", width=name_w, minwidth=140, stretch=False)
-        tree.column("Date", width=108, minwidth=95, stretch=False)
+        tree.column("Student Name", width=name_w, minwidth=120, stretch=False)
+        tree.column("Date", width=100, minwidth=90, stretch=False)
+        tree.column("Time", width=100, minwidth=90, stretch=False)
         tree.column("Status", width=88, minwidth=72, stretch=False)
 
     def load_history(self, level, group_name, term, period, subject, stats_frame, tree):
@@ -1022,7 +1042,7 @@ class RecordAttendance(ctk.CTkFrame):
             cur.execute("""
                 SELECT r.learnerID,
                        s.studLname || ', ' || s.studFname AS studentName,
-                       a.attDate, a.attStatus
+                       a.attDate, a.attTime, a.attStatus
                 FROM ATTENDANCE a
                 JOIN REGISTRATION_DETAIL d ON a.detailID = d.detailID
                 JOIN REGISTRATION r ON d.registrationID = r.registrationID
@@ -1050,12 +1070,13 @@ class RecordAttendance(ctk.CTkFrame):
             else:
                 late_c    += 1; tag_s = "late"
             row_tag = "even" if idx % 2 == 0 else "odd"
+            att_time = r["attTime"] if r["attTime"] else "—"
             tree.insert("", "end",
-                        values=(idx+1, r["learnerID"], r["studentName"], r["attDate"], status),
+                        values=(idx+1, r["learnerID"], r["studentName"], r["attDate"], att_time, status),
                         tags=(tag_s, row_tag))
 
         if not rows:
-            tree.insert("", "end", values=("", "", "No records found for the selected filters.", "", ""))
+            tree.insert("", "end", values=("", "", "No records found for the selected filters.", "", "", ""))
 
         # Build summary cards
         total = len(rows)
