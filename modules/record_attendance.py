@@ -338,7 +338,7 @@ class RecordAttendance(ctk.CTkFrame):
         self.roster_rows_frame.pack(fill="x")
 
         # Bottom Save Attendance button
-        ctk.CTkButton(right_panel, text="💾 SAVE ATTENDANCE",
+        ctk.CTkButton(right_panel, text="SAVE ATTENDANCE",
                       font=ctk.CTkFont(family="Inter", size=14, weight="bold"),
                       height=45, corner_radius=8,
                       fg_color="#122aff", hover_color="#0b1eb3", text_color="#ffffff",

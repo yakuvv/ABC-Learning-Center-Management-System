@@ -24,7 +24,7 @@ class Dashboard(ctk.CTkFrame):
         root.overrideredirect(False)
         root.resizable(True, True)
         root.minsize(1280, 720)
-        root.title(f"{config.WINDOW_TITLE} - Dashboard")
+        root.title(config.WINDOW_TITLE)
         root.configure(fg_color="#e4e4e4")
 
         if is_standalone:

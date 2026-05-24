@@ -78,12 +78,14 @@ class LoginWindow(ctk.CTk):
                                            placeholder_text_color="#9fa3c0",
                                            text_color="white",
                                            fg_color="transparent",
-                                           border_color="white",
-                                           border_width=2,
+                                           border_width=0,
                                            corner_radius=0,
-                                           width=580, height=40,
+                                           width=580, height=35,
                                            font=ctk.CTkFont(family="Arial", size=14))
-        self.username_entry.pack(padx=35, pady=10, anchor="w")
+        self.username_entry.pack(padx=35, pady=(10, 0), anchor="w")
+        
+        self.user_line = ctk.CTkFrame(self.card, width=580, height=2, fg_color="white", corner_radius=0)
+        self.user_line.pack(padx=35, pady=(0, 10), anchor="w")
 
         self.password_entry = ctk.CTkEntry(self.card,
                                            placeholder_text="Password",
@@ -91,12 +93,22 @@ class LoginWindow(ctk.CTk):
                                            text_color="white",
                                            show="*",
                                            fg_color="transparent",
-                                           border_color="white",
-                                           border_width=2,
+                                           border_width=0,
                                            corner_radius=0,
-                                           width=580, height=40,
+                                           width=580, height=35,
                                            font=ctk.CTkFont(family="Arial", size=14))
-        self.password_entry.pack(padx=35, pady=10, anchor="w")
+        self.password_entry.pack(padx=35, pady=(10, 0), anchor="w")
+        
+        self.pass_line = ctk.CTkFrame(self.card, width=580, height=2, fg_color="white", corner_radius=0)
+        self.pass_line.pack(padx=35, pady=(0, 10), anchor="w")
+
+        # Bind focus events to change underline color
+        self.username_entry.bind("<FocusIn>", lambda e: self.user_line.configure(fg_color="#0f3afc"))
+        self.username_entry.bind("<FocusOut>", lambda e: self.user_line.configure(fg_color="white"))
+        
+        self.password_entry.bind("<FocusIn>", lambda e: self.pass_line.configure(fg_color="#0f3afc"))
+        self.password_entry.bind("<FocusOut>", lambda e: self.pass_line.configure(fg_color="white"))
+
 
         # Buttons Container - Right aligned to match the image layout
         btn_frame = ctk.CTkFrame(self.card, fg_color="transparent")
@@ -170,6 +182,7 @@ class LoginWindow(ctk.CTk):
     def show_loading_screen(self, role, name, user_id):
         # hiding the form elements to switch screens
         self.card.place_forget()
+        self.configure(fg_color="#ffffff")
 
         self.loading_label = ctk.CTkLabel(self, text="")
         self.loading_label.place(relx=0.5, rely=0.5, anchor="center")
