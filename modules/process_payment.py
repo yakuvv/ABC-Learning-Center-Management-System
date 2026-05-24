@@ -9,6 +9,8 @@ import subprocess
 import database
 import config
 from utils.pdf_generator import generate_receipt_pdf
+from utils.modern_entry import ModernEntry
+from utils.modern_combo import ModernCombo
 
 class ProcessPayment(ctk.CTkFrame):
     def __init__(self, parent):
@@ -38,19 +40,7 @@ class ProcessPayment(ctk.CTkFrame):
         )
 
     def _combo(self, parent, values, **kwargs):
-        return ctk.CTkComboBox(
-            parent,
-            values=values,
-            height=40, corner_radius=8,
-            fg_color="#ffffff", text_color="#1e293b",
-            button_color="#15165e", button_hover_color="#22259c",
-            dropdown_fg_color="#ffffff", dropdown_text_color="#1e293b",
-            dropdown_hover_color="#f1f5f9",
-            border_width=1, border_color="#cbd5e1",
-            font=ctk.CTkFont(family="Inter", size=13),
-            state="readonly",
-            **kwargs
-        )
+        return ModernCombo(parent, values=values, **kwargs)
 
     def _card(self, parent, height=None):
         """Slate card with left accent. Returns (card, inner)."""
@@ -118,7 +108,8 @@ class ProcessPayment(ctk.CTkFrame):
         search_card, search_inner = self._card(left_col)
         search_card.pack(fill="x", pady=(0, 12))
 
-        self.search_entry = self._entry(search_inner, "Type Student ID, Name, or School ID...")
+        self.search_entry = ModernEntry(search_inner, placeholder_text="Type Student ID, Name, or School ID...",
+                                        height=32, font=ctk.CTkFont(family="Inter", size=13))
         self.search_entry.pack(fill="x", pady=2)
         self.search_entry.bind("<KeyRelease>", self._on_search_key)
         self.search_entry.bind("<FocusOut>", lambda _: self.after(250, self._hide_suggestions))
@@ -173,7 +164,8 @@ class ProcessPayment(ctk.CTkFrame):
             font=ctk.CTkFont(family="Inter", size=13, weight="bold"),
             text_color="#1e293b"
         ).grid(row=0, column=0, sticky="w", pady=12)
-        self.amount_entry = self._entry(pay_inner, "e.g. 1500.00")
+        self.amount_entry = ModernEntry(pay_inner, placeholder_text="e.g. 1500.00",
+                                        height=32, font=ctk.CTkFont(family="Inter", size=13))
         self.amount_entry.grid(row=0, column=1, sticky="ew", padx=(20, 0), pady=12)
 
         # Payment Method Dropdown
