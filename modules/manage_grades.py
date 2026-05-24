@@ -9,18 +9,21 @@ import database
 from utils.pdf_generator import generate_grades_pdf
 from utils.modern_entry import ModernEntry
 from utils.modern_combo import ModernCombo
+from utils.term_options import apply_term_combo_for_level, get_term_options
 
 class ManageGrades(ctk.CTkFrame):
-    def __init__(self, parent):
+    def __init__(self, parent, user_role="Admin/Staff", user_id=None):
         super().__init__(parent, fg_color="#e4e4e4", corner_radius=0)
         self.pack(fill="both", expand=True)
+        self.user_role = user_role
+        self.tutor_id = user_id
 
         if hasattr(parent.master, "welcome_lbl"):
             parent.master.welcome_lbl.pack_forget()
         elif hasattr(parent, "welcome_lbl"):
             parent.welcome_lbl.pack_forget()
 
-        self.grade_entries = {}  # Keys: (detailID, quarter) -> CTkEntry
+        self.grade_entries = {}  # Keys: (detailID, period) -> CTkEntry
         self.final_labels = {}   # Keys: detailID -> CTkLabel
         self.is_editable = True
         self.card_widgets = []
@@ -29,6 +32,21 @@ class ManageGrades(ctk.CTkFrame):
 
     def _combo(self, parent, values, **kwargs):
         return ModernCombo(parent, values=values, **kwargs)
+
+    @staticmethod
+    def _add_combo_underline(parent, combo):
+        """Navy underline below combo; bright blue on focus (matches profile_students)."""
+        underline = ctk.CTkFrame(parent, height=2, fg_color="#15165e", corner_radius=0)
+        underline.pack(fill="x", pady=(0, 2))
+
+        def on_focus(_event=None):
+            underline.configure(fg_color="#122aff")
+
+        def on_unfocus(_event=None):
+            underline.configure(fg_color="#15165e")
+
+        combo.bind("<FocusIn>", on_focus)
+        combo.bind("<FocusOut>", on_unfocus)
 
     def create_ui(self):
         # Top bar
@@ -92,7 +110,7 @@ class ManageGrades(ctk.CTkFrame):
         self.class_tab_frame = ctk.CTkFrame(main_frame, fg_color="transparent")
         self.class_tab_frame.pack(fill="both", expand=True)
 
-        ctk.CTkLabel(self.class_tab_frame, text="Filter Class",
+        ctk.CTkLabel(self.class_tab_frame, text="FILTER CLASS",
                      font=ctk.CTkFont(family="Inter", size=15, weight="bold"),
                      text_color="#000000").pack(anchor="w", pady=(0, 4))
 
@@ -113,62 +131,74 @@ class ManageGrades(ctk.CTkFrame):
             filter_inner.grid_columnconfigure(col, weight=1)
 
         # Grade Level Filter
-        ctk.CTkLabel(filter_inner, text="Grade Level",
-                     font=ctk.CTkFont(family="Inter", size=12, weight="bold"),
+        ctk.CTkLabel(filter_inner, text="LEVEL",
+                     font=ctk.CTkFont(family="Inter", size=15, weight="bold"),
                      text_color="#444444").grid(row=0, column=0, sticky="w", padx=(0, 8))
-        self.grade_combo = self._combo(filter_inner,
-            [f"Grade {i}" for i in range(1, 13)],
-            command=self.on_grade_changed)
+        grade_wrap = ctk.CTkFrame(filter_inner, fg_color="transparent")
+        grade_wrap.grid(row=1, column=0, sticky="ew", padx=(0, 8))
+        self.grade_combo = self._combo(
+            grade_wrap, [f"Grade {i}" for i in range(1, 13)], command=self.on_grade_changed)
         self.grade_combo.set("Grade 7")
-        self.grade_combo.grid(row=1, column=0, sticky="ew", padx=(0, 8))
+        self.grade_combo.pack(fill="x")
+        self._add_combo_underline(grade_wrap, self.grade_combo)
 
         # Section Filter
-        ctk.CTkLabel(filter_inner, text="Section",
-                     font=ctk.CTkFont(family="Inter", size=12, weight="bold"),
+        ctk.CTkLabel(filter_inner, text="GROUP NAME",
+                     font=ctk.CTkFont(family="Inter", size=15, weight="bold"),
                      text_color="#444444").grid(row=0, column=1, sticky="w", padx=(0, 8))
-        self.section_combo = self._combo(filter_inner, ["A", "B", "C", "D"])
+        section_wrap = ctk.CTkFrame(filter_inner, fg_color="transparent")
+        section_wrap.grid(row=1, column=1, sticky="ew", padx=(0, 8))
+        self.section_combo = self._combo(section_wrap, ["A", "B", "C", "D"])
         self.section_combo.set("A")
-        self.section_combo.grid(row=1, column=1, sticky="ew", padx=(0, 8))
+        self.section_combo.pack(fill="x")
+        self._add_combo_underline(section_wrap, self.section_combo)
 
-        # Semester Filter
-        self.term_label = ctk.CTkLabel(filter_inner, text="Semester",
-                                       font=ctk.CTkFont(family="Inter", size=12, weight="bold"),
+        self.term_label = ctk.CTkLabel(filter_inner, text="TERM",
+                                       font=ctk.CTkFont(family="Inter", size=15, weight="bold"),
                                        text_color="#444444")
         self.term_label.grid(row=0, column=2, sticky="w", padx=(0, 8))
-        self.term_label.grid_remove()
 
-        self.term_combo = self._combo(filter_inner, ["1st Semester", "2nd Semester"])
-        self.term_combo.set("")
-        self.term_combo.configure(state="disabled")
-        self.term_combo.grid(row=1, column=2, sticky="ew", padx=(0, 8))
-        self.term_combo.grid_remove()
+        term_wrap = ctk.CTkFrame(filter_inner, fg_color="transparent")
+        term_wrap.grid(row=1, column=2, sticky="ew", padx=(0, 8))
+        self.term_combo = self._combo(term_wrap, [])
+        self.term_combo.pack(fill="x")
+        self._add_combo_underline(term_wrap, self.term_combo)
+        apply_term_combo_for_level(self.term_combo, "Grade 7")
 
-        # School Year Filter
-        ctk.CTkLabel(filter_inner, text="School Year",
-                     font=ctk.CTkFont(family="Inter", size=12, weight="bold"),
+        ctk.CTkLabel(filter_inner, text="PERIOD",
+                     font=ctk.CTkFont(family="Inter", size=15, weight="bold"),
                      text_color="#444444").grid(row=0, column=3, sticky="w")
-        self.sy_combo = self._combo(filter_inner,
-            ["2018-2019", "2019-2020", "2020-2021", "2021-2022", "2022-2023",
-             "2023-2024", "2024-2025", "2025-2026", "2026-2027", "2027-2028",
-             "2028-2029", "2029-2030"])
-        self.sy_combo.set("2025-2026")
-        self.sy_combo.grid(row=1, column=3, sticky="ew")
+        period_wrap = ctk.CTkFrame(filter_inner, fg_color="transparent")
+        period_wrap.grid(row=1, column=3, sticky="ew")
+        self.period_combo = self._combo(
+            period_wrap, ["All Periods", "1st Period", "2nd Period", "3rd Period", "4th Period"])
+        self.period_combo.set("All Periods")
+        self.period_combo.pack(fill="x")
+        self._add_combo_underline(period_wrap, self.period_combo)
 
-        # Load Students & Class Search Bar (placed side by side for a clean layout)
+        # Search card + Load Students button
         controls_row = ctk.CTkFrame(self.class_tab_frame, fg_color="transparent")
         controls_row.pack(fill="x", pady=(0, 10))
 
-        # Search Bar on the Left
-        self.class_search_entry = ModernEntry(
-            controls_row,
-            placeholder_text="🔍 Filter sheet below by student name or school ID...",
-            height=32, font=ctk.CTkFont(family="Inter", size=13)
+        search_card = ctk.CTkFrame(
+            controls_row, fg_color="#ffffff", corner_radius=16,
+            border_width=1, border_color="#cbd5e1", height=60,
         )
-        self.class_search_entry.pack(side="left", fill="x", expand=True, padx=(0, 15))
+        search_card.pack(side="left", fill="x", expand=True, padx=(0, 15))
+        search_card.pack_propagate(False)
+
+        search_inner = ctk.CTkFrame(search_card, fg_color="transparent")
+        search_inner.pack(fill="both", expand=True, padx=15, pady=12)
+
+        self.class_search_entry = ModernEntry(
+            search_inner,
+            placeholder_text="🔍 Filter sheet below by student name or learner ID...",
+            height=32, font=ctk.CTkFont(family="Inter", size=13),
+        )
+        self.class_search_entry.pack(fill="x")
         self.class_search_entry.bind("<KeyRelease>", self.filter_class_sheet)
 
-        # Load Students on the Right
-        ctk.CTkButton(controls_row, text="🔍 LOAD STUDENTS",
+        ctk.CTkButton(controls_row, text="LOAD STUDENTS",
                       font=ctk.CTkFont(family="Inter", size=13, weight="bold"),
                       height=40, width=160, corner_radius=8,
                       fg_color="#122aff", hover_color="#0b1eb3", text_color="#ffffff",
@@ -176,7 +206,7 @@ class ManageGrades(ctk.CTkFrame):
                       ).pack(side="right")
 
         # Scrollable container
-        ctk.CTkLabel(self.class_tab_frame, text="Class Grading Sheet",
+        ctk.CTkLabel(self.class_tab_frame, text="CLASS GRADING SHEET",
                      font=ctk.CTkFont(family="Inter", size=15, weight="bold"),
                      text_color="#000000").pack(anchor="w", pady=(5, 4))
 
@@ -187,14 +217,14 @@ class ManageGrades(ctk.CTkFrame):
         self.bottom_bar = ctk.CTkFrame(self.class_tab_frame, fg_color="transparent")
         self.bottom_bar.pack(fill="x", pady=(10, 0))
 
-        self.save_btn = ctk.CTkButton(self.bottom_bar, text="💾 SAVE ALL GRADES",
+        self.save_btn = ctk.CTkButton(self.bottom_bar, text="SAVE ALL GRADES",
                                       font=ctk.CTkFont(family="Inter", size=14, weight="bold"),
                                       height=45, width=200, corner_radius=8,
                                       fg_color="#122aff", hover_color="#0b1eb3", text_color="#ffffff",
                                       command=self.save_grades)
         self.save_btn.pack(side="right", padx=(10, 0))
 
-        self.edit_btn = ctk.CTkButton(self.bottom_bar, text="✏️ EDIT / UPDATE GRADES",
+        self.edit_btn = ctk.CTkButton(self.bottom_bar, text="EDIT / UPDATE GRADES",
                                       font=ctk.CTkFont(family="Inter", size=14, weight="bold"),
                                       height=45, width=220, corner_radius=8,
                                       fg_color="#f59e0b", hover_color="#d97706", text_color="#ffffff",
@@ -202,7 +232,7 @@ class ManageGrades(ctk.CTkFrame):
         self.edit_btn.pack(side="right", padx=(10, 0))
         self.edit_btn.pack_forget()
 
-        ctk.CTkButton(self.bottom_bar, text="📄 EXPORT GRADE SHEET (PDF)",
+        ctk.CTkButton(self.bottom_bar, text="EXPORT GRADE SHEET (PDF)",
                       font=ctk.CTkFont(family="Inter", size=14, weight="bold"),
                       height=45, width=240, corner_radius=8,
                       fg_color="#15165e", hover_color="#22259c", text_color="#ffffff",
@@ -221,9 +251,9 @@ class ManageGrades(ctk.CTkFrame):
         search_inner.pack(padx=20, pady=15, fill="x")
 
         ctk.CTkLabel(
-            search_inner, text="🔍 Search Student for Individual Grades",
-            font=ctk.CTkFont(family="Inter", size=14, weight="bold"),
-            text_color="#15165e"
+            search_inner, text="SEARCH STUDENT FOR INDIVIDUAL GRADES",
+            font=ctk.CTkFont(family="Inter", size=15, weight="bold"),
+            text_color="#15165e",
         ).pack(anchor="w", pady=(0, 5))
 
         self.ind_search_entry = ModernEntry(
@@ -273,21 +303,12 @@ class ManageGrades(ctk.CTkFrame):
 
     def on_grade_changed(self, choice):
         if choice in [f"Grade {i}" for i in range(1, 11)]:
-            self.term_label.grid_remove()
-            self.term_combo.grid_remove()
-            self.term_combo.configure(values=[])
-            self.term_combo.set("")
-            self.term_combo.configure(state="disabled")
             self.section_combo.configure(values=["A", "B", "C", "D"])
             self.section_combo.set("A")
         else:
-            self.term_label.grid(row=0, column=2, sticky="w", padx=(0, 8))
-            self.term_combo.grid(row=1, column=2, sticky="ew", padx=(0, 8))
-            self.term_combo.configure(state="readonly")
-            self.term_combo.configure(values=["1st Semester", "2nd Semester"])
-            self.term_combo.set("1st Semester")
             self.section_combo.configure(values=["STEM-A", "ABM-A", "HUMSS-A"])
             self.section_combo.set("STEM-A")
+        apply_term_combo_for_level(self.term_combo, choice)
 
     def show_class_placeholder(self):
         for w in self.scroll_container.winfo_children():
@@ -323,12 +344,12 @@ class ManageGrades(ctk.CTkFrame):
         cursor = conn.cursor()
         try:
             cursor.execute("""
-                SELECT e.enrollmentID, e.studentID, e.schoolID, s.studLname, s.studFname, s.studMname,
-                       e.gradeLevel, e.section, e.schoolYear, e.term
-                FROM ENROLLMENT e
-                JOIN STUDENT s USING (studentID)
-                WHERE e.enrStatus = 'Active' AND (
-                    e.schoolID LIKE ? OR
+                SELECT r.registrationID, r.studentID, r.learnerID, s.studLname, s.studFname, s.studMname,
+                       r.level, r.groupName, r.term
+                FROM REGISTRATION r
+                JOIN STUDENT s ON r.studentID = s.studentID
+                WHERE r.regStatus = 'Active' AND (
+                    r.learnerID LIKE ? OR
                     s.studFname LIKE ? OR
                     s.studLname LIKE ?
                 )
@@ -343,7 +364,7 @@ class ManageGrades(ctk.CTkFrame):
                 self.ind_suggest_lbox.delete(0, tk.END)
                 for r in rows:
                     mname = f" {r['studMname'][0]}." if (r['studMname'] is not None and r['studMname'] != "") else ""
-                    lbl = f" {r['studFname']}{mname} {r['studLname']}  (School ID: {r['schoolID']} | {r['gradeLevel']} - {r['section']})"
+                    lbl = f" {r['studFname']}{mname} {r['studLname']}  (Learner ID: {r['learnerID']} | {r['level']} - {r['groupName']})"
                     self.ind_suggest_lbox.insert(tk.END, lbl)
                 self.ind_suggest_lbox.config(height=min(len(rows), 6))
                 self.ind_suggest_frame.pack(fill="x", after=self.ind_search_entry, pady=(4, 0))
@@ -372,17 +393,17 @@ class ManageGrades(ctk.CTkFrame):
         cursor = conn.cursor()
         try:
             cursor.execute("""
-                SELECT e.enrollmentID, e.studentID, e.schoolID, s.studLname, s.studFname, s.studMname,
-                       e.gradeLevel, e.section, e.schoolYear, e.term
-                FROM ENROLLMENT e
-                JOIN STUDENT s USING (studentID)
-                WHERE e.studentID = ? AND e.gradeLevel = ? AND e.schoolYear = ? AND e.term = ? AND e.enrStatus = 'Active'
-            """, (r['studentID'], r['gradeLevel'], r['schoolYear'], selected_term))
+                SELECT r.registrationID, r.studentID, r.learnerID, s.studLname, s.studFname, s.studMname,
+                       r.level, r.groupName, r.term
+                FROM REGISTRATION r
+                JOIN STUDENT s ON r.studentID = s.studentID
+                WHERE r.studentID = ? AND r.level = ? AND r.term = ? AND r.regStatus = 'Active'
+            """, (r['studentID'], r['level'], selected_term))
             row = cursor.fetchone()
             if row:
                 self.load_individual_report_card(row)
             else:
-                messagebox.showinfo("Not Found", f"No active enrollment record found for this student in {selected_term}.")
+                messagebox.showinfo("Not Found", f"No active registration record found for this student in {selected_term}.")
         except Exception as e:
             messagebox.showerror("Error", f"Failed to switch term:\n{e}")
         finally:
@@ -394,12 +415,9 @@ class ManageGrades(ctk.CTkFrame):
 
         mname = f" {r['studMname'][0]}." if (r['studMname'] is not None and r['studMname'] != "") else ""
         full_name = f"{r['studFname']}{mname} {r['studLname']}"
-        grade = r['gradeLevel']
-        section = r['section']
-        school_year = r['schoolYear']
-        semester = r['term']
-
-        is_shs = grade in ["Grade 11", "Grade 12"]
+        level = r['level']
+        group_name = r['groupName']
+        term = r['term']
 
         rc_card = ctk.CTkFrame(self.report_card_container, fg_color="#ffffff", corner_radius=16, border_width=1, border_color="#cbd5e1")
         rc_card.pack(fill="both", expand=True, padx=5, pady=5)
@@ -408,12 +426,9 @@ class ManageGrades(ctk.CTkFrame):
         rc_header.pack(fill="x", side="top", padx=10, pady=(10, 5))
         rc_header.pack_propagate(False)
 
-        accent = ctk.CTkFrame(rc_header, width=4, height=18, fg_color="#122aff", corner_radius=2)
-        accent.pack(side="left", padx=(8, 0), pady=7)
-
         ctk.CTkLabel(
             rc_header,
-            text=f"🎓  STUDENT REPORT CARD  •  {full_name.upper()}  (School ID: {r['schoolID']})",
+            text=f"STUDENT REPORT CARD  •  {full_name.upper()}  (Learner ID: {r['learnerID']})",
             font=ctk.CTkFont(family="Inter", size=12, weight="bold"),
             text_color="#ffffff"
         ).pack(side="left", padx=10, pady=5)
@@ -423,12 +438,10 @@ class ManageGrades(ctk.CTkFrame):
         meta_row.pack_propagate(False)
 
         meta_items = [
-            ("Grade Level", grade),
-            ("Section", section),
-            ("School Year", school_year)
+            ("Level", level),
+            ("Group Name", group_name),
+            ("Term", term),
         ]
-        if is_shs and semester:
-            meta_items.append(("Semester", semester))
 
         for (label, val) in meta_items:
             ctk.CTkLabel(
@@ -437,28 +450,33 @@ class ManageGrades(ctk.CTkFrame):
                 text_color="#475569"
             ).pack(side="left", padx=20)
 
-        # Upper right corner Semester / Term Filter Dropdown for Senior High School (Grade 11/12)
-        if is_shs:
-            filter_frame = ctk.CTkFrame(meta_row, fg_color="transparent")
-            filter_frame.pack(side="right", padx=20, pady=4)
+        filter_frame = ctk.CTkFrame(meta_row, fg_color="transparent")
+        filter_frame.pack(side="right", padx=20, pady=4)
 
-            ctk.CTkLabel(
-                filter_frame, text="Select Term: ",
-                font=ctk.CTkFont(family="Inter", size=12, weight="bold"),
-                text_color="#475569"
-            ).pack(side="left")
+        ctk.CTkLabel(
+            filter_frame, text="Select Term: ",
+            font=ctk.CTkFont(family="Inter", size=12, weight="bold"),
+            text_color="#475569"
+        ).pack(side="left")
 
-            self.rc_term_combo = ModernCombo(filter_frame, values=["1st Semester", "2nd Semester"], width=130, height=28)
-            self.rc_term_combo.set(semester if semester else "1st Semester")
-            self.rc_term_combo.pack(side="left", padx=5)
+        rc_term_values = get_term_options(level)
+        rc_term_wrap = ctk.CTkFrame(filter_frame, fg_color="transparent")
+        rc_term_wrap.pack(side="left", padx=5)
+        self.rc_term_combo = ModernCombo(rc_term_wrap, values=rc_term_values, width=130, height=28)
+        if term in rc_term_values:
+            self.rc_term_combo.set(term)
+        elif rc_term_values:
+            self.rc_term_combo.set(rc_term_values[0])
+        self.rc_term_combo.pack(fill="x")
+        self._add_combo_underline(rc_term_wrap, self.rc_term_combo)
 
-            load_btn = ctk.CTkButton(
-                filter_frame, text="LOAD", width=60, height=28,
-                font=ctk.CTkFont(family="Inter", size=11, weight="bold"),
-                fg_color="#122aff", hover_color="#0b1eb3",
-                command=lambda: self.reload_rc_semester(r)
-            )
-            load_btn.pack(side="left", padx=5)
+        load_btn = ctk.CTkButton(
+            filter_frame, text="LOAD", width=60, height=28,
+            font=ctk.CTkFont(family="Inter", size=11, weight="bold"),
+            fg_color="#122aff", hover_color="#0b1eb3",
+            command=lambda: self.reload_rc_semester(r)
+        )
+        load_btn.pack(side="left", padx=5)
 
         ctk.CTkFrame(rc_card, height=1, fg_color="#cbd5e1").pack(fill="x")
 
@@ -475,8 +493,8 @@ class ManageGrades(ctk.CTkFrame):
         grid_frame.columnconfigure(3, weight=1, uniform="rc_col")
         grid_frame.columnconfigure(4, weight=1, uniform="rc_col")
         grid_frame.columnconfigure(5, weight=2, uniform="rc_col")
-        headers = ["Subject Name", "1st Qtr", "2nd Qtr", "3rd Qtr", "4th Qtr", "Final Grade"]
-        quarters = ["1st Quarter", "2nd Quarter", "3rd Quarter", "4th Quarter"]
+        headers = ["SUBJECT NAME", "1ST PERIOD", "2ND PERIOD", "3RD PERIOD", "4TH PERIOD", "FINAL GRADE"]
+        periods = ["1st Period", "2nd Period", "3rd Period", "4th Period"]
 
         for col_idx, h_text in enumerate(headers):
             lbl = tk.Label(grid_frame, text=h_text,
@@ -489,11 +507,11 @@ class ManageGrades(ctk.CTkFrame):
         try:
             cursor.execute("""
                 SELECT d.detailID, sub.subjectID, sub.subjectName
-                FROM DETAIL d
-                JOIN SUBJECT sub USING (subjectID)
-                WHERE d.enrollmentID = ?
+                FROM REGISTRATION_DETAIL d
+                JOIN SUBJECT sub ON d.subjectID = sub.subjectID
+                WHERE d.registrationID = ?
                 ORDER BY sub.subjectName
-            """, (r['enrollmentID'],))
+            """, (r['registrationID'],))
             subjects = cursor.fetchall()
 
             subjects_data_for_pdf = []
@@ -518,20 +536,20 @@ class ManageGrades(ctk.CTkFrame):
                                    fg="#1e293b", bg=row_bg, anchor="w")
                 lbl_sub.grid(row=0, column=0, sticky="w", padx=10, pady=8)
 
-                cursor.execute("SELECT quarter, gradeValue FROM GRADE WHERE detailID = ?", (sub['detailID'],))
-                grade_map = {gr['quarter']: gr['gradeValue'] for gr in cursor.fetchall()}
+                cursor.execute("SELECT period, gradeValue FROM GRADE WHERE detailID = ?", (sub['detailID'],))
+                grade_map = {gr['period']: gr['gradeValue'] for gr in cursor.fetchall()}
 
                 vals = []
                 q_vals_pdf = {}
 
-                for q_idx, quarter in enumerate(quarters):
-                    existing_val = grade_map.get(quarter)
+                for q_idx, period in enumerate(periods):
+                    existing_val = grade_map.get(period)
                     val_str = "—"
                     if existing_val is not None:
                         val_str = f"{int(existing_val) if existing_val.is_integer() else existing_val}"
                         vals.append(existing_val)
 
-                    q_vals_pdf[quarter] = val_str
+                    q_vals_pdf[period] = val_str
 
                     lbl_q = tk.Label(row_frame, text=val_str,
                                      font=("Inter", 11),
@@ -553,10 +571,10 @@ class ManageGrades(ctk.CTkFrame):
 
                 subjects_data_for_pdf.append({
                     'subjectName': sub['subjectName'],
-                    '1st': q_vals_pdf.get("1st Quarter", "—"),
-                    '2nd': q_vals_pdf.get("2nd Quarter", "—"),
-                    '3rd': q_vals_pdf.get("3rd Quarter", "—"),
-                    '4th': q_vals_pdf.get("4th Quarter", "—"),
+                    '1st': q_vals_pdf.get("1st Period", "—"),
+                    '2nd': q_vals_pdf.get("2nd Period", "—"),
+                    '3rd': q_vals_pdf.get("3rd Period", "—"),
+                    '4th': q_vals_pdf.get("4th Period", "—"),
                     'final': final_str
                 })
 
@@ -564,7 +582,7 @@ class ManageGrades(ctk.CTkFrame):
             btn_panel.pack(fill="x", side="bottom", padx=20, pady=15)
 
             ctk.CTkButton(
-                btn_panel, text="📄 EXPORT STUDENT REPORT CARD (PDF)",
+                btn_panel, text="EXPORT STUDENT REPORT CARD (PDF)",
                 font=ctk.CTkFont(family="Inter", size=13, weight="bold"),
                 height=45, fg_color="#122aff", hover_color="#0b1eb3", text_color="#ffffff",
                 corner_radius=8,
@@ -577,11 +595,10 @@ class ManageGrades(ctk.CTkFrame):
             conn.close()
 
     def export_individual_pdf(self, r, full_name, subjects_list):
-        grade_lvl = r['gradeLevel']
-        school_year = r['schoolYear']
-        semester = r['term']
+        level = r['level']
+        term = r['term']
 
-        initial_file = f"Report_Card_{full_name.replace(' ', '_')}_{grade_lvl.replace(' ', '_')}_{school_year}.pdf"
+        initial_file = f"Report_Card_{full_name.replace(' ', '_')}_{level.replace(' ', '_')}_{term}.pdf"
         filepath = filedialog.asksaveasfilename(
             defaultextension=".pdf",
             filetypes=[("PDF files", "*.pdf")],
@@ -603,15 +620,15 @@ class ManageGrades(ctk.CTkFrame):
 
                 grades_data = [{
                     'name': full_name,
-                    'studentID': r['studentID'],
+                    'studentID': r['learnerID'],
                     'subjects': subjects_list
                 }]
 
                 filter_info = {
                     'subject': "OFFICIAL STUDENT REPORT CARD",
-                    'grade_level': grade_lvl,
-                    'term': semester if semester else "Full Year",
-                    'school_year': school_year,
+                    'grade_level': level,
+                    'term': term,
+                    'school_year': term,
                     'tutor_name': tutor_name,
                     'date_printed': datetime.now().strftime("%B %d, %Y")
                 }
@@ -637,19 +654,15 @@ class ManageGrades(ctk.CTkFrame):
         self.edit_btn.pack_forget()
 
         grade = self.grade_combo.get()
-        section = self.section_combo.get()
-        semester = self.term_combo.get()
-        school_year = self.sy_combo.get()
+        group_name = self.section_combo.get()
+        term = self.term_combo.get()
 
-        if not grade or not section or not school_year:
+        if not grade or not group_name or not term:
             return
 
-        is_shs = grade in ["Grade 11", "Grade 12"]
-
-        # Show native loading label immediately and refresh UI to prevent glitchy freezing
         loading_lbl = ctk.CTkLabel(
             self.scroll_container,
-            text="⏳ Loading class grading sheet, please wait...",
+            text="Loading class grading sheet, please wait...",
             font=ctk.CTkFont(family="Inter", size=14, weight="bold"),
             text_color="#122aff"
         )
@@ -660,25 +673,19 @@ class ManageGrades(ctk.CTkFrame):
             conn = database.get_connection()
             cursor = conn.cursor()
 
-            # SINGLE highly-optimized JOIN query to fetch everything in one pass
             query = """
-                SELECT e.enrollmentID, e.studentID, e.schoolID, s.studLname, s.studFname, s.studMname,
+                SELECT r.registrationID, r.studentID, r.learnerID, s.studLname, s.studFname, s.studMname,
                        d.detailID, sub.subjectID, sub.subjectName,
-                       g.quarter, g.gradeValue
-                FROM ENROLLMENT e
-                JOIN STUDENT s USING (studentID)
-                JOIN DETAIL d ON e.enrollmentID = d.enrollmentID
+                       g.period, g.gradeValue
+                FROM REGISTRATION r
+                JOIN STUDENT s ON r.studentID = s.studentID
+                JOIN REGISTRATION_DETAIL d ON r.registrationID = d.registrationID
                 JOIN SUBJECT sub ON d.subjectID = sub.subjectID
                 LEFT JOIN GRADE g ON d.detailID = g.detailID
-                WHERE e.gradeLevel = ? AND e.section = ? AND e.schoolYear = ? AND e.enrStatus = 'Active'
+                WHERE r.level = ? AND r.groupName = ? AND r.term = ? AND r.regStatus = 'Active'
+                ORDER BY s.studLname, s.studFname, sub.subjectName
             """
-            params = [grade, section, school_year]
-            if is_shs and semester:
-                query += " AND e.term = ?"
-                params.append(semester)
-
-            query += " ORDER BY s.studLname, s.studFname, sub.subjectName"
-            cursor.execute(query, tuple(params))
+            cursor.execute(query, (grade, group_name, term))
             rows = cursor.fetchall()
 
             loading_lbl.destroy()
@@ -699,9 +706,9 @@ class ManageGrades(ctk.CTkFrame):
                     middle = f" {mname[0]}." if mname else ""
                     full_name = f"{row['studLname']}, {row['studFname']}{middle}"
                     students_map[sid] = {
-                        'studentID': row['schoolID'],
+                        'learnerID': row['learnerID'],
                         'name': full_name,
-                        'enrollmentID': row['enrollmentID'],
+                        'registrationID': row['registrationID'],
                         'subjects': {}
                     }
 
@@ -714,9 +721,9 @@ class ManageGrades(ctk.CTkFrame):
                         'grades': {}
                     }
 
-                q = row['quarter']
-                if q:
-                    students_map[sid]['subjects'][did]['grades'][q] = row['gradeValue']
+                p = row['period']
+                if p:
+                    students_map[sid]['subjects'][did]['grades'][p] = row['gradeValue']
 
             # Extract students list preserving the order sorted by SQL
             students_list = []
@@ -732,8 +739,8 @@ class ManageGrades(ctk.CTkFrame):
                     students_list.append(s_data)
 
             # Define headers and quarters (Unified to 1st Qtr - 4th Qtr layout for all grade levels)
-            headers = ["Subject Name", "1st Qtr", "2nd Qtr", "3rd Qtr", "4th Qtr", "Final Grade"]
-            quarters = ["1st Quarter", "2nd Quarter", "3rd Quarter", "4th Quarter"]
+            headers = ["SUBJECT NAME", "1ST PERIOD", "2ND PERIOD", "3RD PERIOD", "4TH PERIOD", "FINAL GRADE"]
+            periods = ["1st Period", "2nd Period", "3rd Period", "4th Period"]
 
             # Render student cards
             for s_idx, student in enumerate(students_list):
@@ -742,7 +749,7 @@ class ManageGrades(ctk.CTkFrame):
 
                 # Save references for real-time search filtering
                 self.card_widgets.append({
-                    "studentID": student['studentID'],
+                    "learnerID": student['learnerID'],
                     "name": student['name'].lower(),
                     "widget": card
                 })
@@ -752,12 +759,12 @@ class ManageGrades(ctk.CTkFrame):
                 header.pack(fill="x", side="top", padx=10, pady=(10, 5))
                 header.pack_propagate(False)
 
-                accent = ctk.CTkFrame(header, width=4, height=18, fg_color="#122aff", corner_radius=2)
-                accent.pack(side="left", padx=(8, 0), pady=7)
-
-                ctk.CTkLabel(header, text=f"👤  {student['name'].upper()}  (School ID: {student['studentID']})",
-                             font=ctk.CTkFont(family="Inter", size=12, weight="bold"),
-                             text_color="#ffffff").pack(side="left", padx=10, pady=4)
+                ctk.CTkLabel(
+                    header,
+                    text=f"{student['name'].upper()}  (Learner ID: {student['learnerID']})",
+                    font=ctk.CTkFont(family="Inter", size=12, weight="bold"),
+                    text_color="#ffffff",
+                ).pack(side="left", padx=12, pady=4)
 
                 grid_frame = ctk.CTkFrame(card, fg_color="transparent")
                 grid_frame.pack(fill="x", padx=15, pady=15)
@@ -807,7 +814,7 @@ class ManageGrades(ctk.CTkFrame):
                     final_val_lbl.grid(row=0, column=len(headers)-1, pady=6, sticky="ew")
                     self.final_labels[sub['detailID']] = final_val_lbl
 
-                    for q_idx, quarter in enumerate(quarters):
+                    for q_idx, period in enumerate(periods):
                         ent = tk.Entry(row_frame,
                                        bg="#ffffff", fg="black",
                                        relief="flat", bd=0,
@@ -819,11 +826,11 @@ class ManageGrades(ctk.CTkFrame):
                                        width=7)
                         ent.grid(row=0, column=q_idx+1, pady=6, sticky="ew", padx=5)
 
-                        existing_val = sub['grades'].get(quarter)
+                        existing_val = sub['grades'].get(period)
                         if existing_val is not None:
                             ent.insert(0, f"{int(existing_val) if existing_val.is_integer() else existing_val}")
 
-                        self.grade_entries[(sub['detailID'], quarter)] = ent
+                        self.grade_entries[(sub['detailID'], period)] = ent
                         q_entries.append(ent)
 
                         ent.bind("<KeyRelease>", lambda e, d_id=sub['detailID'], qe=q_entries, fl=final_val_lbl: self.calculate_final_grade(d_id, qe, fl))
@@ -839,9 +846,9 @@ class ManageGrades(ctk.CTkFrame):
                     })
 
                 self.loaded_students_list.append({
-                    "studentID": student['studentID'],
+                    "learnerID": student['learnerID'],
                     "name": student['name'],
-                    "enrollmentID": student['enrollmentID'],
+                    "registrationID": student['registrationID'],
                     "subjects": student_subjects_data
                 })
 
@@ -856,7 +863,7 @@ class ManageGrades(ctk.CTkFrame):
     def filter_class_sheet(self, event=None):
         query = self.class_search_entry.get().strip().lower()
         for item in self.card_widgets:
-            if not query or query in str(item['studentID']).lower() or query in item['name']:
+            if not query or query in str(item['learnerID']).lower() or query in item['name']:
                 item['widget'].pack(fill="x", pady=8, padx=10)
             else:
                 item['widget'].pack_forget()
@@ -889,14 +896,16 @@ class ManageGrades(ctk.CTkFrame):
         errors = []
 
         try:
-            cursor.execute("SELECT tutorID FROM TUTOR LIMIT 1")
-            tutor_row = cursor.fetchone()
-            tutor_id = tutor_row['tutorID'] if tutor_row else 1
+            tutor_id = self.tutor_id
+            if not tutor_id:
+                cursor.execute("SELECT tutorID FROM TUTOR LIMIT 1")
+                tutor_row = cursor.fetchone()
+                tutor_id = tutor_row['tutorID'] if tutor_row else 1
 
-            for (detail_id, quarter), ent in self.grade_entries.items():
+            for (detail_id, period), ent in self.grade_entries.items():
                 val_str = ent.get().strip()
                 if not val_str:
-                    cursor.execute("DELETE FROM GRADE WHERE detailID = ? AND quarter = ?", (detail_id, quarter))
+                    cursor.execute("DELETE FROM GRADE WHERE detailID = ? AND period = ?", (detail_id, period))
                     continue
 
                 try:
@@ -904,22 +913,22 @@ class ManageGrades(ctk.CTkFrame):
                     if not (0 <= val <= 100):
                         raise ValueError()
                 except ValueError:
-                    errors.append(f"Invalid grade value: '{val_str}' for: {quarter}")
+                    errors.append(f"Invalid grade value: '{val_str}' for: {period}")
                     continue
 
                 cursor.execute("""
-                    INSERT INTO GRADE (detailID, tutorID, quarter, gradeValue, dateRecorded)
+                    INSERT INTO GRADE (detailID, tutorID, period, gradeValue, dateRecorded)
                     VALUES (?, ?, ?, ?, ?)
-                    ON CONFLICT(detailID, quarter) DO UPDATE SET
+                    ON CONFLICT(detailID, period) DO UPDATE SET
                         gradeValue = excluded.gradeValue,
                         dateRecorded = excluded.dateRecorded
-                """, (detail_id, tutor_id, quarter, val, datetime.now().strftime("%Y-%m-%d")))
+                """, (detail_id, tutor_id, period, val, datetime.now().strftime("%Y-%m-%d")))
                 saved += 1
 
             conn.commit()
             self.lock_grades()
 
-            msg = f"Successfully updated {saved} quarterly/semestral grade records."
+            msg = f"Successfully updated {saved} grade records."
             if errors:
                 msg += "\n\nSkipped validation failures:\n" + "\n".join(errors)
             messagebox.showinfo("Success", msg)
@@ -950,13 +959,10 @@ class ManageGrades(ctk.CTkFrame):
             return
 
         grade_lvl = self.grade_combo.get()
-        section = self.section_combo.get()
-        semester = self.term_combo.get()
-        school_year = self.sy_combo.get()
+        group_name = self.section_combo.get()
+        term = self.term_combo.get()
 
-        is_shs = grade_lvl in ["Grade 11", "Grade 12"]
-
-        initial_file = f"Grade_Sheet_{grade_lvl.replace(' ', '_')}_{section.replace(' ', '_')}_{school_year}.pdf"
+        initial_file = f"Grade_Sheet_{grade_lvl.replace(' ', '_')}_{group_name.replace(' ', '_')}_{term}.pdf"
         filepath = filedialog.asksaveasfilename(
             defaultextension=".pdf",
             filetypes=[("PDF files", "*.pdf")],
@@ -996,15 +1002,15 @@ class ManageGrades(ctk.CTkFrame):
 
                     grades_data.append({
                         'name': s['name'],
-                        'studentID': s['studentID'],
+                        'studentID': s['learnerID'],
                         'subjects': subjects_list
                     })
 
                 filter_info = {
                     'subject': "Class Curriculum Breakdown",
                     'grade_level': grade_lvl,
-                    'term': semester if semester else "Full Year",
-                    'school_year': school_year,
+                    'term': term,
+                    'school_year': term,
                     'tutor_name': tutor_name,
                     'date_printed': datetime.now().strftime("%B %d, %Y")
                 }
