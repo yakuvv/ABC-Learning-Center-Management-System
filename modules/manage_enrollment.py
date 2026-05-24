@@ -1326,6 +1326,8 @@ import customtkinter as ctk
 from tkinter import messagebox
 import database
 from database_v2 import generate_school_id
+from utils.modern_entry import ModernEntry
+from utils.modern_combo import ModernCombo
 
 class ManageEnrollment(ctk.CTkFrame):
     def __init__(self, parent):
@@ -1441,9 +1443,8 @@ class ManageEnrollment(ctk.CTkFrame):
         search_card, search_inner = self._card(self.workspace_canvas, height=55)
         search_card.pack(fill="x", pady=(0, 10))
 
-        self.search_entry = ctk.CTkEntry(search_inner, placeholder_text="Student ID or Name",
-                                         height=35, corner_radius=8, fg_color="#f8fafc",
-                                         text_color="black", border_width=1, border_color="#cbd5e1")
+        self.search_entry = ModernEntry(search_inner, placeholder_text="Student ID or Name",
+                                        height=32, font=ctk.CTkFont(family="Inter", size=13))
         self.search_entry.pack(side="left", fill="x", expand=True, padx=10)
 
         ctk.CTkButton(search_inner, text="SEARCH", width=120, height=35, fg_color="#122aff",
@@ -1657,13 +1658,7 @@ class ManageEnrollment(ctk.CTkFrame):
             self.select_all_var.set(all_checked)
 
     def _combo(self, parent, values):
-        return ctk.CTkComboBox(parent, values=values, height=35, corner_radius=0,
-                               fg_color="#ffffff", text_color="#777777",
-                               button_color="#000000", button_hover_color="#222222",
-                               dropdown_fg_color="#ffffff", dropdown_text_color="black",
-                               dropdown_hover_color="#cbd5e1",
-                               border_width=0,
-                               state="readonly")
+        return ModernCombo(parent, values=values)
 
     def load_subjects(self):
         for widget in self.sub_inner.winfo_children():
@@ -2014,9 +2009,8 @@ class ManageEnrollment(ctk.CTkFrame):
         search_row = ctk.CTkFrame(inner, fg_color="transparent")
         search_row.pack(fill="x")
 
-        self.class_search_entry = ctk.CTkEntry(search_row, placeholder_text="Grade 7 - A",
-                                               height=40, corner_radius=8, fg_color="#f8fafc",
-                                               border_width=1, border_color="#cbd5e1", text_color="black")
+        self.class_search_entry = ModernEntry(search_row, placeholder_text="Grade 7 - A",
+                                              height=32, font=ctk.CTkFont(family="Inter", size=13))
         self.class_search_entry.pack(side="left", fill="x", expand=True)
 
         ctk.CTkButton(search_row, text="SEARCH", width=130, height=40,
