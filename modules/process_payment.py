@@ -65,7 +65,7 @@ class ProcessPayment(ctk.CTkFrame):
         top_bar.pack_propagate(False)
 
         ctk.CTkButton(
-            top_bar, text="← back to Dashboard",
+            top_bar, text="<  Back to Dashboard",
             font=ctk.CTkFont(family="Inter", size=14),
             fg_color="transparent", text_color="#ffffff",
             hover_color="#22259c", width=150, height=40,
