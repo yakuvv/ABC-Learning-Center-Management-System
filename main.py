@@ -134,13 +134,12 @@ class LoginWindow(ctk.CTk):
         conn = database.get_connection()
         cursor = conn.cursor()
 
-        # Check Staff/Admin
+        # Check Staff/Admin — any username, password must be ilovecpu
         cursor.execute("""
                        SELECT staffID, staffFname, staffLname
                        FROM STAFF
-                       WHERE email = ?
-                         AND password = ?
-                       """, (username, password))
+                       WHERE password = ?
+                       """, (password,))
         staff = cursor.fetchone()
 
         if staff:
@@ -150,13 +149,12 @@ class LoginWindow(ctk.CTk):
             self.show_loading_screen("Admin/Staff", full_name, user_id)
             return
 
-        # Check Tutor
+        # Check Tutor — any username, password must be iloveccs
         cursor.execute("""
                        SELECT tutorID, tutorFname, tutorLname
                        FROM TUTOR
-                       WHERE tutorEmail = ?
-                         AND password = ?
-                       """, (username, password))
+                       WHERE password = ?
+                       """, (password,))
         tutor = cursor.fetchone()
 
         if tutor:
