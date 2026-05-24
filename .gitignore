@@ -7,5 +7,6 @@ __pycache__/
 receipts/
 *.pdf
 
-# Auto-generated backup database (created by migrate_and_seed.py)
+# Local SQLite databases (share manually, not via Git)
+abc_learning_center.db
 abc_learning_center_backup.db
