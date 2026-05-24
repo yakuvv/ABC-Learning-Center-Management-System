@@ -1,5 +1,6 @@
 # reset_database.py
-import os
+import sys, os
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import database
 from database import DB_NAME, clear_all_data, init_database
 

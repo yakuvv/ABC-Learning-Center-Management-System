@@ -1,6 +1,7 @@
 # migrate_and_seed.py
+import sys, os
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import shutil
-import os
 import sqlite3
 
 from database import init_database, get_connection, DB_NAME
@@ -24,11 +25,11 @@ def drop_all_tables(cursor):
 def seed_staff_and_tutor(cursor):
     cursor.execute('''
         INSERT OR IGNORE INTO STAFF (staffFname, staffLname, position, email, password)
-        VALUES ('Vince', 'Oñate', 'Administrator', 'admin', 'admin123')
+        VALUES ('Vince', 'Oñate', 'Administrator', 'admin', 'ilovecpu')
     ''')
     cursor.execute('''
         INSERT OR IGNORE INTO TUTOR (tutorFname, tutorLname, tutorEmail, password, specialization)
-        VALUES ('Maria', 'Santos', 'tutor', 'tutor123', 'Mathematics')
+        VALUES ('Maria', 'Santos', 'tutor', 'iloveccs', 'Mathematics')
     ''')
 
 
