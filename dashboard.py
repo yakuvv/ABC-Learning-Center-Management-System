@@ -38,6 +38,11 @@ class Dashboard(ctk.CTkFrame):
         self.user_role = user_role
         self.user_name = user_name
         self.user_id = user_id
+        
+        self.sidebar_expanded = True
+        self.animating = False
+        self.sidebar_width = 250
+        
         self.create_dashboard_ui()
 
     def mainloop(self, *args, **kwargs):
@@ -63,27 +68,38 @@ class Dashboard(ctk.CTkFrame):
 
     # ── Sidebar ───────────────────────────────────────────────────────────────
     def create_dashboard_ui(self):
-        sidebar = ctk.CTkFrame(self, width=215, fg_color="#15165e", corner_radius=0)
-        sidebar.pack(side="left", fill="y")
-        sidebar.pack_propagate(False)
+        self.sidebar = ctk.CTkFrame(self, width=self.sidebar_width, fg_color="#15165e", corner_radius=0)
+        self.sidebar.pack(side="left", fill="y")
+        self.sidebar.pack_propagate(False)
+
+        self.toggle_btn = ctk.CTkButton(self.sidebar, text="←", width=36, height=36,
+                                        font=ctk.CTkFont(size=24, weight="bold"),
+                                        fg_color="#15165e", hover_color="#22259c",
+                                        text_color="white", corner_radius=8,
+                                        command=self.toggle_sidebar)
+        self.toggle_btn.place(x=7, y=14)
+
+        self.sidebar_inner = ctk.CTkFrame(self.sidebar, fg_color="transparent", corner_radius=0)
+        self.sidebar_inner.pack(fill="both", expand=True)
+        self.toggle_btn.lift()
 
         from PIL import Image
         import os
         logo_path = os.path.abspath("assets/logo.png")
         if os.path.exists(logo_path):
             logo_img = Image.open(logo_path)
-            ctk_logo = ctk.CTkImage(light_image=logo_img, dark_image=logo_img, size=(56, 56))
-            ctk.CTkLabel(sidebar, image=ctk_logo, text="").pack(pady=(22, 4))
+            ctk_logo = ctk.CTkImage(light_image=logo_img, dark_image=logo_img, size=(96, 96))
+            ctk.CTkLabel(self.sidebar_inner, image=ctk_logo, text="").pack(pady=(20, 0))
         else:
-            ctk.CTkLabel(sidebar, text="ABC",
-                         font=ctk.CTkFont(family="Inter", size=28, weight="bold"),
-                         text_color="#122aff").pack(pady=(28, 2))
+            ctk.CTkLabel(self.sidebar_inner, text="ABC",
+                         font=ctk.CTkFont(family="Inter", size=32, weight="bold"),
+                         text_color="#122aff").pack(pady=(20, 0))
+                         
+        ctk.CTkLabel(self.sidebar_inner, text="ABC Learning Center",
+                     font=ctk.CTkFont(family="Inter", size=18, weight="bold"),
+                     text_color="#ffffff").pack(pady=(4, 12))
 
-        ctk.CTkLabel(sidebar, text="ABC Learning Center",
-                     font=ctk.CTkFont(family="Inter", size=11, weight="bold"),
-                     text_color="#a5b4fc").pack(pady=(0, 4))
-
-        ctk.CTkFrame(sidebar, height=1, fg_color="#22259c", corner_radius=0).pack(
+        ctk.CTkFrame(self.sidebar_inner, height=1, fg_color="#22259c", corner_radius=0).pack(
             fill="x", padx=18, pady=(0, 14))
 
         all_nav_items = [
@@ -102,9 +118,9 @@ class Dashboard(ctk.CTkFrame):
         self.nav_buttons = []
         for text, command in nav_items:
             btn = ctk.CTkButton(
-                sidebar, text=text,
+                self.sidebar_inner, text=text,
                 width=188, height=40,
-                font=ctk.CTkFont(family="Inter", size=13),
+                font=ctk.CTkFont(family="Inter", size=15, weight="bold"),
                 text_color="#cbd5e1",
                 fg_color="transparent",
                 hover_color="#22259c",
@@ -115,12 +131,12 @@ class Dashboard(ctk.CTkFrame):
             btn.pack(pady=1, padx=12, fill="x")
             self.nav_buttons.append((btn, text))
 
-        ctk.CTkFrame(sidebar, height=1, fg_color="#22259c", corner_radius=0).pack(
+        ctk.CTkFrame(self.sidebar_inner, height=1, fg_color="#22259c", corner_radius=0).pack(
             side="bottom", fill="x", padx=18, pady=(0, 0))
 
         ctk.CTkButton(
-            sidebar, text="⏻  Log Out",
-            font=ctk.CTkFont(family="Inter", size=13),
+            self.sidebar_inner, text="⏻  Log Out",
+            font=ctk.CTkFont(family="Inter", size=15, weight="bold"),
             text_color="#94a3b8",
             fg_color="transparent",
             hover_color="#22259c",
@@ -131,7 +147,7 @@ class Dashboard(ctk.CTkFrame):
         ).pack(side="bottom", fill="x", padx=12, pady=(0, 4))
 
         role_col = "#a5b4fc" if self.user_role.lower() == "admin/staff" else "#86efac"
-        user_chip = ctk.CTkFrame(sidebar, fg_color="#1e1f6e", corner_radius=10)
+        user_chip = ctk.CTkFrame(self.sidebar_inner, fg_color="#1e1f6e", corner_radius=10)
         user_chip.pack(side="bottom", fill="x", padx=12, pady=(0, 8))
         ctk.CTkLabel(user_chip, text=self.user_name,
                      font=ctk.CTkFont(family="Inter", size=12, weight="bold"),
@@ -144,6 +160,44 @@ class Dashboard(ctk.CTkFrame):
         self.main_content.pack(side="right", fill="both", expand=True)
 
         self._show_welcome()
+
+    def toggle_sidebar(self):
+        if self.animating:
+            return
+        
+        if self.sidebar_expanded:
+            start = self.sidebar_width
+            end = 50
+            self.toggle_btn.configure(text="→")
+            self.sidebar_inner.place(x=-1000, y=0) # Move completely offscreen instantly
+        else:
+            start = 50
+            end = self.sidebar_width
+            self.toggle_btn.configure(text="←")
+            
+        self.sidebar_expanded = not self.sidebar_expanded
+        self.animating = True
+        self._animate_ease_out(start, end)
+
+    def _animate_ease_out(self, start, end, duration=0.15):
+        import time
+        start_time = time.time()
+        def _step():
+            elapsed = time.time() - start_time
+            t = elapsed / duration
+            if t >= 1.0:
+                self.sidebar.configure(width=end)
+                self.animating = False
+                if self.sidebar_expanded:
+                    self.sidebar_inner.place_forget()
+                    self.sidebar_inner.pack(fill="both", expand=True)
+                    self.toggle_btn.lift()
+                return
+            eased = t * (2 - t)
+            w = int(start + (end - start) * eased)
+            self.sidebar.configure(width=max(0, w))
+            self.after(10, _step)
+        _step()
 
     # ── Welcome screen ────────────────────────────────────────────────────────
     def _show_welcome(self):
@@ -220,41 +274,38 @@ class Dashboard(ctk.CTkFrame):
 
         self._section_label(scroll, "OVERVIEW")
 
-        stats_row = ctk.CTkFrame(scroll, fg_color="transparent")
-        stats_row.pack(fill="x", pady=(0, 14))
+        # Plain white wrapper card for all 4 stat tiles
+        overview_card = ctk.CTkFrame(scroll, fg_color="#ffffff", corner_radius=16,
+                                     border_width=1, border_color="#e2e8f0")
+        overview_card.pack(fill="x", pady=(0, 14))
+
+        stats_row = ctk.CTkFrame(overview_card, fg_color="transparent")
+        stats_row.pack(fill="x", padx=16, pady=16)
 
         stat_items = [
-            ("Total Students",     str(student_count), "👤", "#122aff", "#eef2ff"),
-            ("Active Registrations", str(enr_count),     "📋", "#00bf63", "#f0fdf4"),
-            ("Payments Recorded",  str(pay_count),     "💳", "#f59e0b", "#fffbeb"),
-            ("Attendance Today",   str(att_today),     "✅", "#8b5cf6", "#f5f3ff"),
+            ("Total Students",     str(student_count), "#122aff", "#eef2ff"),
+            ("Active Registrations", str(enr_count),     "#00bf63", "#f0fdf4"),
+            ("Payments Recorded",  str(pay_count),     "#f59e0b", "#fffbeb"),
+            ("Attendance Today",   str(att_today),     "#8b5cf6", "#f5f3ff"),
         ]
         if is_tutor:
             stat_items = [s for s in stat_items if s[0] != "Payments Recorded"]
 
-        for i, (label, val, icon, color, bg) in enumerate(stat_items):
-            pad_right = (0, 8) if i < len(stat_items) - 1 else (0, 0)
+        for i, (label, val, color, bg) in enumerate(stat_items):
+            pad_right = (0, 10) if i < len(stat_items) - 1 else (0, 0)
             card = ctk.CTkFrame(stats_row, fg_color=bg, corner_radius=14,
                                 border_width=1, border_color="#e2e8f0")
             card.grid(row=0, column=i, sticky="nsew", padx=pad_right)
             stats_row.grid_columnconfigure(i, weight=1)
 
-            acc_wrap = ctk.CTkFrame(card, width=4, fg_color="transparent")
-            acc_wrap.pack(side="left", fill="y", padx=(8, 0), pady=7)
-            ctk.CTkFrame(acc_wrap, width=4, fg_color=color,
-                         corner_radius=2).pack(fill="both", expand=True)
-
             inner = ctk.CTkFrame(card, fg_color="transparent")
-            inner.pack(fill="both", expand=True, padx=10, pady=7)
+            inner.pack(fill="both", expand=True, padx=14, pady=12)
 
             top_row = ctk.CTkFrame(inner, fg_color="transparent")
             top_row.pack(fill="x")
             ctk.CTkLabel(top_row, text=val,
-                         font=ctk.CTkFont(family="Inter", size=22, weight="bold"),
+                         font=ctk.CTkFont(family="Inter", size=50, weight="bold"),
                          text_color=color).pack(side="left")
-            ctk.CTkLabel(top_row, text=icon,
-                         font=ctk.CTkFont(size=14),
-                         text_color=color).pack(side="right")
             ctk.CTkLabel(inner, text=label,
                          font=ctk.CTkFont(family="Inter", size=10),
                          text_color="#64748b").pack(anchor="w", pady=(1, 0))
@@ -267,44 +318,43 @@ class Dashboard(ctk.CTkFrame):
         left_col = ctk.CTkFrame(body_row, fg_color="transparent")
         left_col.grid(row=0, column=0, sticky="nsew", padx=(0, 14))
 
-        self._section_label(left_col, "MODULES")
+        self._section_label(left_col, "QUICK ACCESS")
 
         all_module_items = [
-            ("👤", "Profile Students",  "Add / view student profiles",  "#122aff", self.open_profile,  "Profile Students"),
-            ("📋", "Manage Enrollment", "Register students into subjects", "#00bf63", self.open_enrollment, "Manage Enrollment"),
-            ("✅", "Record Attendance", "Mark student attendance",       "#f59e0b", self.open_attendance, "Record Attendance"),
-            ("💳", "Process Payment",   "Record fees and receipts",      "#8b5cf6", self.open_payment,  "Process Payment"),
-            ("📝", "Manage Grades",     "Enter and view student grades", "#e20000", self.open_grades,   "Manage Grades"),
+            ("Profile Students",  "Add / view student profiles",  "#122aff", self.open_profile,  "Profile Students"),
+            ("Manage Enrollment", "Register students into subjects", "#00bf63", self.open_enrollment, "Manage Enrollment"),
+            ("Record Attendance", "Mark student attendance",       "#f59e0b", self.open_attendance, "Record Attendance"),
+            ("Process Payment",   "Record fees and receipts",      "#8b5cf6", self.open_payment,  "Process Payment"),
+            ("Manage Grades",     "Enter and view student grades", "#e20000", self.open_grades,   "Manage Grades"),
         ]
         module_items = [
-            (icon, title, desc, color, cmd)
-            for icon, title, desc, color, cmd, name in all_module_items
+            (title, desc, color, cmd)
+            for title, desc, color, cmd, name in all_module_items
             if not (is_tutor and name in self.STAFF_ONLY_MODULES)
         ]
 
-        for icon, title, desc, color, cmd in module_items:
-            m_card = ctk.CTkFrame(left_col, fg_color="#ffffff", corner_radius=16,
-                                  border_width=1, border_color="#cbd5e1",
-                                  cursor="hand2", height=56)
+        # Plain white wrapper card for all quick access rows
+        qa_card = ctk.CTkFrame(left_col, fg_color="#ffffff", corner_radius=16,
+                               border_width=1, border_color="#e2e8f0")
+        qa_card.pack(fill="x")
+        qa_inner = ctk.CTkFrame(qa_card, fg_color="transparent")
+        qa_inner.pack(fill="x", padx=14, pady=12)
+
+        for title, desc, color, cmd in module_items:
+            m_card = ctk.CTkFrame(qa_inner, fg_color="#f8fafc", corner_radius=10,
+                                  border_width=1, border_color="#e2e8f0",
+                                  cursor="hand2", height=50)
             m_card.pack(fill="x", pady=(0, 6))
             m_card.pack_propagate(False)
 
-            acc_wrap = ctk.CTkFrame(m_card, width=4, fg_color="transparent")
-            acc_wrap.pack(side="left", fill="y", padx=(10, 0), pady=10)
-            ctk.CTkFrame(acc_wrap, width=4, fg_color=color,
-                         corner_radius=2).pack(fill="both", expand=True)
-
             row_inner = ctk.CTkFrame(m_card, fg_color="transparent")
-            row_inner.pack(fill="both", expand=True, padx=10, pady=0)
+            row_inner.pack(fill="both", expand=True, padx=12, pady=0)
 
             label_col = ctk.CTkFrame(row_inner, fg_color="transparent")
             label_col.pack(side="left", fill="both", expand=True)
 
             title_row = ctk.CTkFrame(label_col, fg_color="transparent")
             title_row.pack(fill="both", expand=True)
-            ctk.CTkLabel(title_row, text=icon,
-                         font=ctk.CTkFont(size=13),
-                         text_color=color).pack(side="left", padx=(0, 5))
             ctk.CTkLabel(title_row, text=title,
                          font=ctk.CTkFont(family="Inter", size=12, weight="bold"),
                          text_color="#0f172a").pack(side="left")
@@ -414,8 +464,8 @@ class Dashboard(ctk.CTkFrame):
 
     def _section_label(self, parent, text):
         ctk.CTkLabel(parent, text=text,
-                     font=ctk.CTkFont(family="Inter", size=11, weight="bold"),
-                     text_color="#475569").pack(anchor="w", pady=(0, 6))
+                     font=ctk.CTkFont(family="Inter", size=15, weight="bold"),
+                     text_color="#000000").pack(anchor="w", pady=(0, 6))
 
     def _tick_clock(self):
         if hasattr(self, "_clock_lbl") and self._clock_lbl.winfo_exists():
