@@ -229,7 +229,7 @@ class Dashboard(ctk.CTkFrame):
 
         scroll = ctk.CTkScrollableFrame(self.main_content,
                                         fg_color="transparent", corner_radius=0)
-        scroll.pack(fill="both", expand=True, padx=28, pady=16)
+        scroll.pack(fill="both", expand=True, padx=28, pady=8)
 
         now = datetime.now()
         greeting = ("Good morning" if now.hour < 12
@@ -237,8 +237,8 @@ class Dashboard(ctk.CTkFrame):
 
         greet_card = ctk.CTkFrame(scroll, fg_color="#ffffff", corner_radius=16,
                                    border_width=1, border_color="#cbd5e1",
-                                   height=48)
-        greet_card.pack(fill="x", pady=(0, 10))
+                                   height=52)
+        greet_card.pack(fill="x", pady=(0, 8))
         greet_card.pack_propagate(False)
 
         greet_inner = ctk.CTkFrame(greet_card, fg_color="transparent")
@@ -248,7 +248,7 @@ class Dashboard(ctk.CTkFrame):
         row.pack(fill="both", expand=True)
         ctk.CTkLabel(row,
                      text=f"{greeting}, {self.user_name}! 👋",
-                     font=ctk.CTkFont(family="Inter", size=16, weight="bold"),
+                     font=ctk.CTkFont(family="Inter", size=18, weight="bold"),
                      text_color="#0f172a", anchor="w").pack(side="left", pady=0)
         ctk.CTkLabel(row,
                      text=f"Logged in as  {self.user_role}",
@@ -277,10 +277,10 @@ class Dashboard(ctk.CTkFrame):
         # Plain white wrapper card for all 4 stat tiles
         overview_card = ctk.CTkFrame(scroll, fg_color="#ffffff", corner_radius=16,
                                      border_width=1, border_color="#e2e8f0")
-        overview_card.pack(fill="x", pady=(0, 14))
+        overview_card.pack(fill="x", pady=(0, 10))
 
         stats_row = ctk.CTkFrame(overview_card, fg_color="transparent")
-        stats_row.pack(fill="x", padx=16, pady=16)
+        stats_row.pack(fill="x", padx=16, pady=10)
 
         stat_items = [
             ("Total Students",     str(student_count), "#122aff", "#eef2ff"),
@@ -299,7 +299,7 @@ class Dashboard(ctk.CTkFrame):
             stats_row.grid_columnconfigure(i, weight=1)
 
             inner = ctk.CTkFrame(card, fg_color="transparent")
-            inner.pack(fill="both", expand=True, padx=14, pady=12)
+            inner.pack(fill="both", expand=True, padx=14, pady=8)
 
             top_row = ctk.CTkFrame(inner, fg_color="transparent")
             top_row.pack(fill="x")
@@ -311,7 +311,7 @@ class Dashboard(ctk.CTkFrame):
                          text_color="#64748b").pack(anchor="w", pady=(1, 0))
 
         body_row = ctk.CTkFrame(scroll, fg_color="transparent")
-        body_row.pack(fill="both", expand=True, pady=(0, 14))
+        body_row.pack(fill="both", expand=True, pady=(0, 10))
         body_row.columnconfigure(0, weight=3)
         body_row.columnconfigure(1, weight=5)
 
@@ -338,13 +338,13 @@ class Dashboard(ctk.CTkFrame):
                                border_width=1, border_color="#e2e8f0")
         qa_card.pack(fill="x")
         qa_inner = ctk.CTkFrame(qa_card, fg_color="transparent")
-        qa_inner.pack(fill="x", padx=14, pady=12)
+        qa_inner.pack(fill="x", padx=14, pady=8)
 
         for title, desc, color, cmd in module_items:
             m_card = ctk.CTkFrame(qa_inner, fg_color="#f8fafc", corner_radius=10,
                                   border_width=1, border_color="#e2e8f0",
-                                  cursor="hand2", height=50)
-            m_card.pack(fill="x", pady=(0, 6))
+                                  cursor="hand2", height=42)
+            m_card.pack(fill="x", pady=(0, 4))
             m_card.pack_propagate(False)
 
             row_inner = ctk.CTkFrame(m_card, fg_color="transparent")
@@ -368,6 +368,14 @@ class Dashboard(ctk.CTkFrame):
                           fg_color=color, hover_color="#0b1eb3",
                           text_color="#ffffff",
                           command=cmd).pack(side="right", padx=(8, 0))
+
+        try:
+            from utils.modern_calendar import ModernCalendar
+            self._section_label(left_col, "CALENDAR", pady=(14, 6))
+            calendar_widget = ModernCalendar(left_col)
+            calendar_widget.pack(fill="x", pady=(0, 0))
+        except Exception as e:
+            print(f"Calendar could not be loaded: {e}")
 
         right_col = ctk.CTkFrame(body_row, fg_color="transparent")
         right_col.grid(row=0, column=1, sticky="nsew")
@@ -424,11 +432,11 @@ class Dashboard(ctk.CTkFrame):
                             height=11, style="Dash.Treeview")
 
         col_cfg = {
-            "#":           (34,  "center", False),
-            "Student Name":(230, "w",      True),
-            "Level":       (110, "w",      False),
-            "Group Name":  (80,  "w",      False),
-            "Status":      (90,  "center", False),
+            "#":           (50,  "center", False),
+            "Student Name":(220, "w",      True),
+            "Level":       (120, "center", False),
+            "Group Name":  (150, "center", False),
+            "Status":      (130, "center", False),
         }
         for col, (w, anch, stretch) in col_cfg.items():
             tree.heading(col, text=col, anchor=anch)
@@ -462,10 +470,10 @@ class Dashboard(ctk.CTkFrame):
 
         self.welcome_lbl = ctk.CTkLabel(scroll, text="")
 
-    def _section_label(self, parent, text):
+    def _section_label(self, parent, text, pady=(0, 6)):
         ctk.CTkLabel(parent, text=text,
                      font=ctk.CTkFont(family="Inter", size=15, weight="bold"),
-                     text_color="#000000").pack(anchor="w", pady=(0, 6))
+                     text_color="#000000").pack(anchor="w", pady=pady)
 
     def _tick_clock(self):
         if hasattr(self, "_clock_lbl") and self._clock_lbl.winfo_exists():
