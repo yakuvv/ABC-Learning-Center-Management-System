@@ -1,8 +1,11 @@
 venv/
 __pycache__/
+**/__pycache__/
 *.pyc
-# *.db
 *.sqlite3
 .DS_Store
 receipts/
 *.pdf
+
+# Auto-generated backup database (created by migrate_and_seed.py)
+abc_learning_center_backup.db
