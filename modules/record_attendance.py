@@ -95,18 +95,7 @@ class RecordAttendance(ctk.CTkFrame):
         self.create_ui()
 
     def _combo(self, parent, values, **kwargs):
-        return ctk.CTkComboBox(
-            parent,
-            values=values,
-            height=35, corner_radius=0,
-            fg_color="#ffffff", text_color="#777777",
-            button_color="#000000", button_hover_color="#222222",
-            dropdown_fg_color="#ffffff", dropdown_text_color="black",
-            dropdown_hover_color="#cbd5e1",
-            border_width=0,
-            state="readonly",
-            **kwargs
-        )
+        return ModernCombo(parent, values=values, **kwargs)
 
     def _card_frame(self, parent, height=None):
         kw = {"height": height} if height else {}
@@ -150,16 +139,58 @@ class RecordAttendance(ctk.CTkFrame):
                          font=ctk.CTkFont(family="Inter", size=18, weight="bold"),
                          text_color="#122aff").pack(side="right", padx=30)
 
-        workspace = ctk.CTkFrame(self, fg_color="transparent")
-        workspace.pack(fill="both", expand=True, padx=40, pady=20)
+        # ── TAB PILL SWITCHER ─────────────────────────────────────────────────
+        tab_selector_frame = ctk.CTkFrame(self, fg_color="transparent")
+        tab_selector_frame.pack(fill="x", pady=(12, 0))
 
-        split_body = ctk.CTkFrame(workspace, fg_color="transparent")
+        tab_pill = ctk.CTkFrame(tab_selector_frame, fg_color="#cbd5e1", width=380, height=46, corner_radius=23)
+        tab_pill.pack(anchor="center")
+        tab_pill.pack_propagate(False)
+
+        self.record_tab_btn = ctk.CTkButton(
+            tab_pill, text="Record Attendance",
+            font=ctk.CTkFont(family="Inter", size=13, weight="bold"),
+            fg_color="#122aff", text_color="#ffffff",
+            corner_radius=19, height=38, width=185,
+            command=lambda: self.switch_tab("record"))
+        self.record_tab_btn.pack(side="left", padx=(4, 2), pady=4)
+
+        self.history_tab_btn = ctk.CTkButton(
+            tab_pill, text="Attendance History",
+            font=ctk.CTkFont(family="Inter", size=13, weight="bold"),
+            fg_color="transparent", text_color="#374151",
+            corner_radius=19, height=38, width=185,
+            command=lambda: self.switch_tab("history"))
+        self.history_tab_btn.pack(side="left", padx=(2, 4), pady=4)
+
+        # ── WORKSPACE CONTAINER ───────────────────────────────────────────────
+        self.workspace_canvas = ctk.CTkFrame(self, fg_color="transparent")
+        self.workspace_canvas.pack(fill="both", expand=True, padx=40, pady=(10, 20))
+
+        self.render_record_tab()
+
+    def switch_tab(self, tab):
+        if tab == "record":
+            self.record_tab_btn.configure(fg_color="#122aff", text_color="#ffffff")
+            self.history_tab_btn.configure(fg_color="transparent", text_color="#374151")
+            self.render_record_tab()
+        else:
+            self.record_tab_btn.configure(fg_color="transparent", text_color="#374151")
+            self.history_tab_btn.configure(fg_color="#122aff", text_color="#ffffff")
+            self.render_history_tab()
+
+    def render_record_tab(self):
+        for w in self.workspace_canvas.winfo_children():
+            w.destroy()
+
+        split_body = ctk.CTkFrame(self.workspace_canvas, fg_color="transparent")
         split_body.pack(fill="both", expand=True)
 
         # ── LEFT PANEL ───────────────────────────────────────────────────────
-        left_panel = ctk.CTkFrame(split_body, fg_color="transparent", width=480)
-        left_panel.pack(side="left", fill="both", anchor="nw")
+        left_panel = ctk.CTkFrame(split_body, fg_color="transparent", width=420)
+        left_panel.pack(side="left", fill="y", anchor="nw")
         left_panel.pack_propagate(False)
+        left_panel.grid_propagate(False)
 
         def section_label(parent, text, row):
             lbl = ctk.CTkLabel(parent, text=text,
@@ -269,20 +300,20 @@ class RecordAttendance(ctk.CTkFrame):
         self.hdr = ctk.CTkFrame(self.roster_scroll, fg_color="transparent")
         self.hdr.pack(fill="x", pady=(0, 6))
         
-        self.hdr.grid_columnconfigure(0, minsize=40)  # index
-        self.hdr.grid_columnconfigure(1, minsize=45)  # P
-        self.hdr.grid_columnconfigure(2, minsize=45)  # A
-        self.hdr.grid_columnconfigure(3, minsize=45)  # L
-        self.hdr.grid_columnconfigure(4, weight=2)    # Last Name
-        self.hdr.grid_columnconfigure(5, weight=2)    # First Name
+        self.hdr.grid_columnconfigure(0, minsize=35)  # index
+        self.hdr.grid_columnconfigure(1, minsize=35)  # P
+        self.hdr.grid_columnconfigure(2, minsize=35)  # A
+        self.hdr.grid_columnconfigure(3, minsize=35)  # L
+        self.hdr.grid_columnconfigure(4, weight=3)    # Last Name
+        self.hdr.grid_columnconfigure(5, weight=3)    # First Name
         self.hdr.grid_columnconfigure(6, weight=1)    # Middle Name
-        self.hdr.grid_columnconfigure(7, weight=1)    # Status
-        self.hdr.grid_columnconfigure(8, weight=1)    # Time
+        self.hdr.grid_columnconfigure(7, minsize=80)  # Status (fixed)
+        self.hdr.grid_columnconfigure(8, minsize=65)  # Time (fixed)
 
-        ctk.CTkLabel(self.hdr, text="#", font=ctk.CTkFont(family="Inter", size=12, weight="bold"), text_color="#475569", width=40).grid(row=0, column=0, padx=2)
-        ctk.CTkLabel(self.hdr, text="P", font=ctk.CTkFont(family="Inter", size=13, weight="bold"), text_color="#00bf63", width=45).grid(row=0, column=1, padx=2)
-        ctk.CTkLabel(self.hdr, text="A", font=ctk.CTkFont(family="Inter", size=13, weight="bold"), text_color="#e20000", width=45).grid(row=0, column=2, padx=2)
-        ctk.CTkLabel(self.hdr, text="L", font=ctk.CTkFont(family="Inter", size=13, weight="bold"), text_color="#122aff", width=45).grid(row=0, column=3, padx=2)
+        ctk.CTkLabel(self.hdr, text="#", font=ctk.CTkFont(family="Inter", size=12, weight="bold"), text_color="#475569", width=35).grid(row=0, column=0, padx=2)
+        ctk.CTkLabel(self.hdr, text="P", font=ctk.CTkFont(family="Inter", size=13, weight="bold"), text_color="#00bf63", width=35).grid(row=0, column=1, padx=2)
+        ctk.CTkLabel(self.hdr, text="A", font=ctk.CTkFont(family="Inter", size=13, weight="bold"), text_color="#e20000", width=35).grid(row=0, column=2, padx=2)
+        ctk.CTkLabel(self.hdr, text="L", font=ctk.CTkFont(family="Inter", size=13, weight="bold"), text_color="#122aff", width=35).grid(row=0, column=3, padx=2)
 
         headers = [
             ("LAST NAME", 4),
@@ -363,8 +394,9 @@ class RecordAttendance(ctk.CTkFrame):
             self.section_combo.set("A")
             self.term_label_widget.grid_remove()
             self.term_card.grid_remove()
-            self.term_combo.configure(state="disabled", values=["Full Year"])
+            self.term_combo.configure(state="readonly", values=["Full Year"])
             self.term_combo.set("Full Year")
+            self.term_combo.configure(state="disabled")
 
         self.update_combo_style(self.section_combo)
         self.update_combo_style(self.term_combo)
@@ -455,7 +487,8 @@ class RecordAttendance(ctk.CTkFrame):
     def on_ok_clicked(self):
         grade = self.class_combo.get().strip()
         section = self.section_combo.get().strip()
-        term = self.term_combo.get().strip()
+        is_shs = grade in ["Grade 11", "Grade 12"]
+        term = self.term_combo.get().strip() if is_shs else "Full Year"
         sy = self.sy_combo.get().strip()
         sub = self.subject_combo.get().strip()
 
@@ -481,7 +514,8 @@ class RecordAttendance(ctk.CTkFrame):
     def load_students(self):
         grade = self.class_combo.get().strip()
         section = self.section_combo.get().strip()
-        term = self.term_combo.get().strip()
+        is_shs = grade in ["Grade 11", "Grade 12"]
+        term = self.term_combo.get().strip() if is_shs else "Full Year"
         sy = self.sy_combo.get().strip()
         sub = self.subject_combo.get().strip()
 
@@ -527,7 +561,7 @@ class RecordAttendance(ctk.CTkFrame):
             names = []
             detail_ids = {}
             for r in rows:
-                m = f" {r['studMname'][0]}." if r.get('studMname') else ""
+                m = f" {r['studMname'][0]}." if r['studMname'] else ""
                 full_name = f"{r['studLname']}, {r['studFname']}{m}"
                 names.append(full_name)
                 detail_ids[full_name] = r['detailID']
@@ -574,20 +608,20 @@ class RecordAttendance(ctk.CTkFrame):
 
             self.student_row_frames[name] = row_frame
 
-            row_frame.grid_columnconfigure(0, minsize=40)
-            row_frame.grid_columnconfigure(1, minsize=45)
-            row_frame.grid_columnconfigure(2, minsize=45)
-            row_frame.grid_columnconfigure(3, minsize=45)
-            row_frame.grid_columnconfigure(4, weight=2)
-            row_frame.grid_columnconfigure(5, weight=2)
+            row_frame.grid_columnconfigure(0, minsize=35)
+            row_frame.grid_columnconfigure(1, minsize=35)
+            row_frame.grid_columnconfigure(2, minsize=35)
+            row_frame.grid_columnconfigure(3, minsize=35)
+            row_frame.grid_columnconfigure(4, weight=3)
+            row_frame.grid_columnconfigure(5, weight=3)
             row_frame.grid_columnconfigure(6, weight=1)
-            row_frame.grid_columnconfigure(7, weight=1)
-            row_frame.grid_columnconfigure(8, weight=1)
+            row_frame.grid_columnconfigure(7, minsize=80)
+            row_frame.grid_columnconfigure(8, minsize=65)
 
             # Roster index number
             ctk.CTkLabel(row_frame, text=str(idx + 1),
                          font=ctk.CTkFont(family="Inter", size=13, weight="bold"),
-                         text_color="#475569", width=40
+                         text_color="#475569", width=35
                          ).grid(row=0, column=0, padx=2, pady=8)
 
             p_var = ctk.BooleanVar(value=False)
@@ -628,19 +662,19 @@ class RecordAttendance(ctk.CTkFrame):
                          text_color="#475569", anchor="w").grid(row=0, column=6, padx=10, pady=10, sticky="w")
 
             # Elegant rounded Status Pill container
-            status_box = ctk.CTkFrame(row_frame, fg_color="#f1f5f9", height=26, corner_radius=13)
-            status_box.grid(row=0, column=7, padx=10, pady=10, sticky="ew")
+            status_box = ctk.CTkFrame(row_frame, fg_color="#f1f5f9", width=70, height=22, corner_radius=11)
+            status_box.grid(row=0, column=7, padx=5, pady=10)
             status_box.pack_propagate(False)
             status_lbl = ctk.CTkLabel(status_box, text="",
-                                      font=ctk.CTkFont(family="Inter", size=11, weight="bold"),
+                                      font=ctk.CTkFont(family="Inter", size=10, weight="bold"),
                                       text_color="#64748b")
-            status_lbl.pack(anchor="center", pady=3)
+            status_lbl.pack(anchor="center", expand=True)
 
             # Time Cell
             time_lbl = ctk.CTkLabel(row_frame, text="—",
                                     font=ctk.CTkFont(family="Inter", size=12),
                                     text_color="#64748b")
-            time_lbl.grid(row=0, column=8, padx=10, pady=10, sticky="center")
+            time_lbl.grid(row=0, column=8, padx=10, pady=10)
 
             self.student_row_widgets[name] = (status_box, status_lbl, time_lbl)
 
@@ -783,6 +817,330 @@ class RecordAttendance(ctk.CTkFrame):
         if hasattr(self, "time_label") and self.time_label.winfo_exists():
             self.time_label.configure(text=formatted_time)
             self.after(1000, self.update_clock)
+
+    def render_history_tab(self):
+        for w in self.workspace_canvas.winfo_children():
+            w.destroy()
+
+        import tkinter.ttk as ttk
+
+        split_body = ctk.CTkFrame(self.workspace_canvas, fg_color="transparent")
+        split_body.pack(fill="both", expand=True)
+
+        # ── LEFT PANEL (same style as Record tab) ────────────────────────────
+        left_panel = ctk.CTkFrame(split_body, fg_color="transparent", width=420)
+        left_panel.pack(side="left", fill="y", anchor="nw")
+        left_panel.pack_propagate(False)
+        left_panel.grid_propagate(False)
+
+        def section_label(parent, text, row):
+            lbl = ctk.CTkLabel(parent, text=text,
+                               font=ctk.CTkFont(family="Inter", size=12, weight="bold"),
+                               text_color="black")
+            lbl.grid(row=row, column=0, sticky="w", pady=(8, 2))
+            return lbl
+
+        SY_LIST = ["2018-2019","2019-2020","2020-2021","2021-2022","2022-2023",
+                   "2023-2024","2024-2025","2025-2026","2026-2027","2027-2028",
+                   "2028-2029","2029-2030"]
+
+        # CLASS
+        section_label(left_panel, "CLASS", 0)
+        h_class_card, h_class_inner = self._card_frame(left_panel, height=50)
+        h_class_card.grid(row=1, column=0, sticky="ew")
+        h_class_card.pack_propagate(False)
+        self.h_class = self._combo(h_class_inner, [f"Grade {i}" for i in range(1, 13)])
+        self.h_class.pack(fill="x")
+
+        # SECTION
+        section_label(left_panel, "SECTION", 2)
+        h_sec_card, h_sec_inner = self._card_frame(left_panel, height=50)
+        h_sec_card.grid(row=3, column=0, sticky="ew")
+        h_sec_card.pack_propagate(False)
+        self.h_section = self._combo(h_sec_inner, ["A","B","C","D"])
+        self.h_section.pack(fill="x")
+
+        # PERIOD label (shown/hidden based on grade)
+        self.h_period_lbl = section_label(left_panel, "PERIOD", 4)
+        h_per_card, h_per_inner = self._card_frame(left_panel, height=50)
+        h_per_card.grid(row=5, column=0, sticky="ew")
+        h_per_card.pack_propagate(False)
+        self.h_period = self._combo(h_per_inner, ["All Periods","1st Qtr","2nd Qtr","3rd Qtr","4th Qtr"])
+        self.h_period.set("All Periods")
+        self.h_period.pack(fill="x")
+
+        # SCHOOL YEAR
+        section_label(left_panel, "SCHOOL YEAR", 6)
+        h_sy_card, h_sy_inner = self._card_frame(left_panel, height=50)
+        h_sy_card.grid(row=7, column=0, sticky="ew")
+        h_sy_card.pack_propagate(False)
+        self.h_sy = self._combo(h_sy_inner, SY_LIST)
+        self.h_sy.set("2025-2026")
+        self.h_sy.pack(fill="x")
+
+        # SUBJECT
+        section_label(left_panel, "SUBJECT", 8)
+        h_sub_card, h_sub_inner = self._card_frame(left_panel, height=50)
+        h_sub_card.grid(row=9, column=0, sticky="ew")
+        h_sub_card.pack_propagate(False)
+        self.h_subject = self._combo(h_sub_inner, [])
+        self.h_subject.pack(fill="x")
+
+        # SEARCH button
+        ctk.CTkButton(left_panel, text="SEARCH",
+                      font=ctk.CTkFont(family="Inter", size=13, weight="bold"),
+                      height=40, corner_radius=8,
+                      fg_color="#122aff", hover_color="#0b1eb3", text_color="#ffffff",
+                      command=lambda: self.load_history(
+                          self.h_class.get(), self.h_section.get(),
+                          self.h_sy.get(), self.h_period.get(),
+                          self.h_subject.get(), stats_frame, tree)
+                      ).grid(row=10, column=0, sticky="ew", pady=(15, 0))
+
+        left_panel.columnconfigure(0, weight=1)
+
+        def on_h_class_changed(choice):
+            is_shs = choice in ["Grade 11","Grade 12"]
+            if is_shs:
+                self.h_section.configure(values=["STEM-A","ABM-A","HUMSS-A"])
+                self.h_section.set("STEM-A")
+                self.h_period.configure(values=["All Periods","1st Semester","2nd Semester"])
+                self.h_period.set("All Periods")
+            else:
+                self.h_section.configure(values=["A","B","C","D"])
+                self.h_section.set("A")
+                self.h_period.configure(values=["All Periods","1st Qtr","2nd Qtr","3rd Qtr","4th Qtr"])
+                self.h_period.set("All Periods")
+            self.update_combo_style(self.h_class)
+            self.update_combo_style(self.h_section)
+            self.update_combo_style(self.h_period)
+            load_h_subjects()
+
+        def load_h_subjects():
+            grade = self.h_class.get()
+            section = self.h_section.get()
+            if not grade or not section:
+                return
+            try:
+                conn = database.get_connection()
+                cur = conn.cursor()
+                is_shs = grade in ["Grade 11","Grade 12"]
+                if is_shs:
+                    period = self.h_period.get()
+                    sem_num = 1 if "1st" in period else 2
+                    strand = next((s for s in ["STEM","ABM","HUMSS"] if s in section), "STEM")
+                    cur.execute("""SELECT DISTINCT subjectName FROM SUBJECT
+                                   WHERE gradeLevel=? AND strand=? AND semester=? AND isActive=1
+                                   ORDER BY subjectName""", (grade, strand, sem_num))
+                else:
+                    cur.execute("""SELECT DISTINCT subjectName FROM SUBJECT
+                                   WHERE gradeLevel=? AND isActive=1
+                                   ORDER BY subjectName""", (grade,))
+                rows = cur.fetchall()
+                conn.close()
+                names = [r["subjectName"] for r in rows]
+                self.h_subject.configure(values=names)
+                self.h_subject.set(names[0] if names else "")
+                self.update_combo_style(self.h_subject)
+            except Exception:
+                pass
+
+        self.h_class.configure(command=on_h_class_changed)
+        self.h_class.set("Grade 7")
+        on_h_class_changed("Grade 7")
+
+        # ── RIGHT PANEL ───────────────────────────────────────────────────────
+        right_panel = ctk.CTkFrame(split_body, fg_color="transparent")
+        right_panel.pack(side="right", fill="both", expand=True, padx=(20, 0))
+
+        ctk.CTkLabel(right_panel, text="ATTENDANCE RECORDS",
+                     font=ctk.CTkFont(family="Inter", size=14, weight="bold"),
+                     text_color="black").pack(anchor="w", pady=(0, 6))
+
+        # ── SUMMARY STATS ────────────────────────────────────────────────────
+        stats_frame = ctk.CTkFrame(right_panel, fg_color="transparent")
+        stats_frame.pack(fill="x", pady=(0, 10))
+
+        # ── TABLE ────────────────────────────────────────────────────────────
+        table_card = ctk.CTkFrame(right_panel, fg_color="#ffffff",
+                                  corner_radius=16, border_width=1, border_color="#cbd5e1")
+        table_card.pack(fill="both", expand=True)
+
+        acc_t = ctk.CTkFrame(table_card, width=6, fg_color="transparent")
+        acc_t.pack(side="left", fill="y", padx=(12, 0), pady=12)
+        ctk.CTkFrame(acc_t, width=6, fg_color="#15165e", corner_radius=3).pack(fill="both", expand=True)
+
+        tree_frame = ctk.CTkFrame(table_card, fg_color="transparent")
+        tree_frame.pack(fill="both", expand=True, padx=15, pady=12)
+
+        style = ttk.Style()
+        style.theme_use("clam")
+        style.configure("Hist.Treeview.Heading",
+                        background="#15165e", foreground="#ffffff",
+                        font=("Inter", 11, "bold"), borderwidth=0)
+        style.map("Hist.Treeview.Heading",
+                  background=[("active","#1c1d7c")], foreground=[("active","#ffffff")])
+        style.configure("Hist.Treeview",
+                        font=("Inter", 10), rowheight=30,
+                        fieldbackground="#ffffff", background="#ffffff", borderwidth=0)
+        style.map("Hist.Treeview",
+                  background=[("selected","#e0e7ff")],
+                  foreground=[("selected","#15165e")])
+
+        cols = ("#", "School ID", "Student Name", "Date", "Status")
+        tree = ttk.Treeview(tree_frame, columns=cols, show="headings",
+                            height=18, style="Hist.Treeview")
+        tree.tag_configure("present", foreground="#008040")
+        tree.tag_configure("absent",  foreground="#b91c1c")
+        tree.tag_configure("late",    foreground="#122aff")
+        tree.tag_configure("even",    background="#f8fafc")
+        tree.tag_configure("odd",     background="#ffffff")
+
+        widths = [40, 110, 220, 100, 90]
+        for col, w in zip(cols, widths):
+            tree.heading(col, text=col)
+            tree.column(col, width=w, anchor="center" if col in ("#","Status") else "w")
+
+        sb = ttk.Scrollbar(tree_frame, orient="vertical", command=tree.yview)
+        tree.configure(yscrollcommand=sb.set)
+        sb.pack(side="right", fill="y")
+        tree.pack(fill="both", expand=True)
+
+    def load_history(self, grade, section, sy, period, subject, stats_frame, tree):
+        # Clear old stats
+        for w in stats_frame.winfo_children():
+            w.destroy()
+
+        # Clear tree
+        for item in tree.get_children():
+            tree.delete(item)
+
+        if not all([grade, section, sy, subject]):
+            from tkinter import messagebox
+            messagebox.showwarning("Warning", "Please complete all filters first!")
+            return
+
+        # Philippine DepEd calendar: SY runs August → June
+        # year_start-08-01 to year_end-06-30
+        year_start = int(sy.split("-")[0])
+        year_end   = int(sy.split("-")[1])
+        is_shs = grade in ["Grade 11", "Grade 12"]
+
+        if period == "All Periods":
+            # Show everything for the full school year
+            d_start = f"{year_start}-06-01"
+            d_end   = f"{year_end}-07-31"
+        elif is_shs:
+            if "1st" in period:
+                d_start, d_end = f"{year_start}-06-01", f"{year_start}-12-31"
+            else:
+                d_start, d_end = f"{year_end}-01-01", f"{year_end}-07-31"
+        else:
+            # 1st Qtr: Aug–Oct  |  2nd Qtr: Nov–Jan  |  3rd Qtr: Feb–Mar  |  4th Qtr: Apr–Jun
+            if "1st" in period:
+                d_start, d_end = f"{year_start}-06-01", f"{year_start}-10-31"
+            elif "2nd" in period:
+                d_start, d_end = f"{year_start}-11-01", f"{year_end}-01-31"
+            elif "3rd" in period:
+                d_start, d_end = f"{year_end}-02-01", f"{year_end}-03-31"
+            else:
+                d_start, d_end = f"{year_end}-04-01", f"{year_end}-07-31"
+
+        # Determine term filter
+        if period == "All Periods":
+            if is_shs:
+                term_filter = None   # no term restriction — show both semesters
+            else:
+                term_filter = "Full Year"
+        else:
+            term_filter = period if is_shs else "Full Year"
+
+        try:
+            conn = database.get_connection()
+            cur  = conn.cursor()
+            if term_filter is None:
+                # SHS All Periods — no term restriction
+                cur.execute("""
+                    SELECT e.schoolID,
+                           s.studLname || ', ' || s.studFname AS studentName,
+                           a.attDate, a.attStatus
+                    FROM ATTENDANCE a
+                    JOIN DETAIL d     ON a.detailID    = d.detailID
+                    JOIN ENROLLMENT e ON d.enrollmentID = e.enrollmentID
+                    JOIN STUDENT s    ON e.studentID    = s.studentID
+                    JOIN SUBJECT sub  ON d.subjectID    = sub.subjectID
+                    WHERE e.gradeLevel   = ?
+                      AND e.section      = ?
+                      AND e.schoolYear   = ?
+                      AND sub.subjectName = ?
+                      AND a.attDate BETWEEN ? AND ?
+                    ORDER BY s.studLname, s.studFname, a.attDate
+                """, (grade, section, sy, subject, d_start, d_end))
+            else:
+                cur.execute("""
+                    SELECT e.schoolID,
+                           s.studLname || ', ' || s.studFname AS studentName,
+                           a.attDate, a.attStatus
+                    FROM ATTENDANCE a
+                    JOIN DETAIL d     ON a.detailID    = d.detailID
+                    JOIN ENROLLMENT e ON d.enrollmentID = e.enrollmentID
+                    JOIN STUDENT s    ON e.studentID    = s.studentID
+                    JOIN SUBJECT sub  ON d.subjectID    = sub.subjectID
+                    WHERE e.gradeLevel   = ?
+                      AND e.section      = ?
+                      AND e.schoolYear   = ?
+                      AND e.term         = ?
+                      AND sub.subjectName = ?
+                      AND a.attDate BETWEEN ? AND ?
+                    ORDER BY s.studLname, s.studFname, a.attDate
+                """, (grade, section, sy, term_filter, subject, d_start, d_end))
+            rows = cur.fetchall()
+            conn.close()
+        except Exception as e:
+            from tkinter import messagebox
+            messagebox.showerror("Error", f"Failed to load history:\n{e}")
+            return
+
+        present_c = absent_c = late_c = 0
+        for idx, r in enumerate(rows):
+            status = r["attStatus"]
+            if status == "Present":
+                present_c += 1; tag_s = "present"
+            elif status == "Absent":
+                absent_c  += 1; tag_s = "absent"
+            else:
+                late_c    += 1; tag_s = "late"
+            row_tag = "even" if idx % 2 == 0 else "odd"
+            tree.insert("", "end",
+                        values=(idx+1, r["schoolID"], r["studentName"], r["attDate"], status),
+                        tags=(tag_s, row_tag))
+
+        if not rows:
+            tree.insert("", "end", values=("", "", "No records found for the selected filters.", "", ""))
+
+        # Build summary cards
+        total = len(rows)
+        stats = [
+            ("✓  Present", present_c, "#00bf63", "#e6fff3"),
+            ("✗  Absent",  absent_c,  "#e20000", "#fff0f0"),
+            ("⏰  Late",   late_c,    "#122aff", "#eef0ff"),
+            ("📋  Total",  total,     "#475569", "#f8fafc"),
+        ]
+        for label, count, fg, bg in stats:
+            card = ctk.CTkFrame(stats_frame, fg_color=bg, corner_radius=12,
+                                border_width=1, border_color="#cbd5e1", width=160, height=60)
+            card.pack(side="left", padx=(0, 12))
+            card.pack_propagate(False)
+            ctk.CTkLabel(card, text=label,
+                         font=ctk.CTkFont(family="Inter", size=11, weight="bold"),
+                         text_color="#475569").pack(pady=(8, 0))
+            ctk.CTkLabel(card, text=str(count),
+                         font=ctk.CTkFont(family="Inter", size=20, weight="bold"),
+                         text_color=fg).pack()
+
+        if not rows:
+            from tkinter import messagebox
+            messagebox.showinfo("No Records", "No attendance records found for the selected filters.")
 
     def back_to_dashboard(self):
         dashboard = self.master.master
