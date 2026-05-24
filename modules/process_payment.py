@@ -1,4 +1,3 @@
-# modules/process_payment.py
 import os
 import tkinter as tk
 import customtkinter as ctk
@@ -13,10 +12,12 @@ from utils.modern_entry import ModernEntry
 from utils.modern_combo import ModernCombo
 
 class ProcessPayment(ctk.CTkFrame):
-    def __init__(self, parent):
+    def __init__(self, parent, user_role="Admin/Staff", user_id=None):
         super().__init__(parent, fg_color="#e4e4e4", corner_radius=0)
         self.pack(fill="both", expand=True)
-        self.current_enrollment_id = None
+        self.user_role = user_role
+        self.user_id = user_id
+        self.current_registration_id = None
         self.current_student_data = None
         self._suggestions_rows = []
 
@@ -99,7 +100,7 @@ class ProcessPayment(ctk.CTkFrame):
         left_col.grid(row=0, column=0, sticky="nsew", padx=(0, 15))
 
         ctk.CTkLabel(
-            left_col, text="Search Student Enrollment",
+            left_col, text="SEARCH STUDENT ENROLLMENT",
             font=ctk.CTkFont(family="Inter", size=15, weight="bold"),
             text_color="#1e293b"
         ).pack(anchor="w", pady=(0, 6))
@@ -108,7 +109,7 @@ class ProcessPayment(ctk.CTkFrame):
         search_card, search_inner = self._card(left_col)
         search_card.pack(fill="x", pady=(0, 12))
 
-        self.search_entry = ModernEntry(search_inner, placeholder_text="Type Student ID, Name, or School ID...",
+        self.search_entry = ModernEntry(search_inner, placeholder_text="Type Student ID, Name, or Learner ID...",
                                         height=32, font=ctk.CTkFont(family="Inter", size=13))
         self.search_entry.pack(fill="x", pady=2)
         self.search_entry.bind("<KeyRelease>", self._on_search_key)
@@ -127,7 +128,7 @@ class ProcessPayment(ctk.CTkFrame):
 
         # Info Display Card
         ctk.CTkLabel(
-            left_col, text="Enrollee Information",
+            left_col, text="ENROLLEE INFORMATION",
             font=ctk.CTkFont(family="Inter", size=15, weight="bold"),
             text_color="#1e293b"
         ).pack(anchor="w", pady=(10, 6))
@@ -149,7 +150,7 @@ class ProcessPayment(ctk.CTkFrame):
         right_col.grid(row=0, column=1, sticky="nsew", padx=(15, 0))
 
         ctk.CTkLabel(
-            right_col, text="Payment Settings",
+            right_col, text="PAYMENT SETTINGS",
             font=ctk.CTkFont(family="Inter", size=15, weight="bold"),
             text_color="#1e293b"
         ).pack(anchor="w", pady=(0, 6))
@@ -191,7 +192,7 @@ class ProcessPayment(ctk.CTkFrame):
 
         self.clear_btn = ctk.CTkButton(
             right_col,
-            text="Clear Form",
+            text="CLEAR FORM",
             font=ctk.CTkFont(family="Inter", size=13, weight="bold"),
             height=40, corner_radius=8,
             fg_color="#cbd5e1", hover_color="#94a3b8", text_color="#1e293b",
@@ -213,16 +214,16 @@ class ProcessPayment(ctk.CTkFrame):
         conn = database.get_connection()
         cursor = conn.cursor()
         cursor.execute("""
-            SELECT e.enrollmentID, e.schoolID, e.gradeLevel, e.section, e.term, e.schoolYear,
+            SELECT r.registrationID, r.learnerID, r.level, r.groupName, r.term,
                    s.studentID, s.studFname, s.studLname, s.studMname
-            FROM ENROLLMENT e
-            JOIN STUDENT s ON e.studentID = s.studentID
-            WHERE e.schoolID LIKE ?
+            FROM REGISTRATION r
+            JOIN STUDENT s ON r.studentID = s.studentID
+            WHERE r.learnerID LIKE ?
                OR s.studentID = ?
                OR s.studFname LIKE ?
                OR s.studLname LIKE ?
                OR (s.studFname || ' ' || s.studLname) LIKE ?
-            ORDER BY e.enrollmentID DESC
+            ORDER BY r.registrationID DESC
             LIMIT 8
         """, (f"%{kw}%", kid, f"%{kw}%", f"%{kw}%", f"%{kw}%"))
         rows = [dict(r) for r in cursor.fetchall()]
@@ -233,7 +234,7 @@ class ProcessPayment(ctk.CTkFrame):
             self.suggest_lbox.delete(0, tk.END)
             for r in rows:
                 mname = f" {r['studMname'][0]}." if r.get('studMname') else ""
-                lbl = f" {r['studFname']}{mname} {r['studLname']}  (School ID: {r['schoolID'] or '—'} | {r['gradeLevel'] or '—'} - {r['section'] or '—'})"
+                lbl = f" {r['studFname']}{mname} {r['studLname']}  (Learner ID: {r['learnerID'] or '—'} | {r['level'] or '—'} - {r['groupName'] or '—'})"
                 self.suggest_lbox.insert(tk.END, lbl)
             self.suggest_lbox.config(height=min(len(rows), 6))
             self.suggest_frame.pack(fill="x", after=self.search_entry, pady=(4, 0))
@@ -249,12 +250,12 @@ class ProcessPayment(ctk.CTkFrame):
         if not sel:
             return
         row = self._suggestions_rows[sel[0]]
-        self.select_enrollment(row)
+        self.select_registration(row)
         self.search_entry.delete(0, tk.END)
         self._hide_suggestions()
 
-    def select_enrollment(self, r):
-        self.current_enrollment_id = r['enrollmentID']
+    def select_registration(self, r):
+        self.current_registration_id = r['registrationID']
         self.current_student_data = r
 
         for w in self.info_inner.winfo_children():
@@ -267,10 +268,10 @@ class ProcessPayment(ctk.CTkFrame):
         details_frame.pack(fill="both", expand=True)
 
         info_items = [
-            ("School ID", r['schoolID'] or "—"),
+            ("Learner ID", r['learnerID'] or "—"),
             ("Student Name", full_name),
-            ("Grade & Section", f"{r['gradeLevel'] or '—'} - {r['section'] or '—'}"),
-            ("Term & SY", f"{r['term'] or '—'}  |  {r['schoolYear'] or '—'}")
+            ("Level & Group", f"{r['level'] or '—'} - {r['groupName'] or '—'}"),
+            ("Term", r['term'] or "—")
         ]
 
         for i, (label, val) in enumerate(info_items):
@@ -289,7 +290,7 @@ class ProcessPayment(ctk.CTkFrame):
             lbl_val.grid(row=i, column=1, sticky="w", padx=(20, 0), pady=6)
 
     def process_payment(self):
-        if not self.current_enrollment_id:
+        if not self.current_registration_id:
             messagebox.showwarning("Warning", "Please search and select a student first!")
             return
 
@@ -306,9 +307,9 @@ class ProcessPayment(ctk.CTkFrame):
         cursor = conn.cursor()
         try:
             cursor.execute("""
-                INSERT INTO PAYMENT (enrollmentID, amount, payMethod, payStatus)
+                INSERT INTO PAYMENT (registrationID, amount, payMethod, payStatus)
                 VALUES (?, ?, ?, 'Paid')
-            """, (self.current_enrollment_id, amount, method))
+            """, (self.current_registration_id, amount, method))
 
             payment_id = cursor.lastrowid
             receipt_num = f"REC-{datetime.now().strftime('%Y%m%d')}-{payment_id:04d}"
@@ -334,10 +335,10 @@ class ProcessPayment(ctk.CTkFrame):
                 'amount': amount,
                 'method': method,
                 'student_name': student_name,
-                'school_id': r['schoolID'] or "—",
-                'grade_level': r['gradeLevel'] or "—",
+                'school_id': r['learnerID'] or "—",
+                'grade_level': r['level'] or "—",
                 'term': r['term'] or "—",
-                'school_year': r['schoolYear'] or "—"
+                'school_year': r['term'] or "—"
             }
             generate_receipt_pdf(filepath, receipt_data)
 
@@ -359,7 +360,7 @@ class ProcessPayment(ctk.CTkFrame):
         self.search_entry.delete(0, tk.END)
         self.amount_entry.delete(0, tk.END)
         self.method_combo.set("Cash")
-        self.current_enrollment_id = None
+        self.current_registration_id = None
         self.current_student_data = None
 
         for w in self.info_inner.winfo_children():
@@ -482,14 +483,20 @@ class ReceiptSuccessModal(ctk.CTkToplevel):
             command=self.destroy
         ).pack(side="left", padx=(6, 0))
 
+    def _open_path(self, path):
+        if os.name == "nt":
+            os.startfile(path)
+        else:
+            subprocess.run(["xdg-open", path], check=True)
+
     def open_pdf(self):
         try:
-            subprocess.run(["xdg-open", self.filepath], check=True)
+            self._open_path(self.filepath)
         except Exception as e:
             messagebox.showerror("Error", f"Could not open PDF file:\n{str(e)}", parent=self)
 
     def open_folder(self):
         try:
-            subprocess.run(["xdg-open", self.folderpath], check=True)
+            self._open_path(self.folderpath)
         except Exception as e:
             messagebox.showerror("Error", f"Could not open folder:\n{str(e)}", parent=self)
