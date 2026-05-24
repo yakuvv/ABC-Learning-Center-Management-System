@@ -2,6 +2,7 @@ import customtkinter as ctk
 from tkinter import messagebox
 import database
 from datetime import datetime
+from utils.modern_combo import ModernCombo
 
 
 class AttendanceSavedPopup(ctk.CTkToplevel):
