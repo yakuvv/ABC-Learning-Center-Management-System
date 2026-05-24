@@ -40,7 +40,6 @@ class Dashboard(ctk.CTkFrame):
         self.user_id = user_id
         
         self.sidebar_expanded = True
-        self.animating = False
         self.sidebar_width = 250
         
         self.create_dashboard_ui()
@@ -162,42 +161,17 @@ class Dashboard(ctk.CTkFrame):
         self._show_welcome()
 
     def toggle_sidebar(self):
-        if self.animating:
-            return
-        
         if self.sidebar_expanded:
-            start = self.sidebar_width
-            end = 50
+            self.sidebar.configure(width=50)
             self.toggle_btn.configure(text="→")
-            self.sidebar_inner.place(x=-1000, y=0) # Move completely offscreen instantly
+            self.sidebar_inner.place(x=-1000, y=0)
         else:
-            start = 50
-            end = self.sidebar_width
+            self.sidebar.configure(width=self.sidebar_width)
             self.toggle_btn.configure(text="←")
-            
+            self.sidebar_inner.place_forget()
+            self.sidebar_inner.pack(fill="both", expand=True)
+            self.toggle_btn.lift()
         self.sidebar_expanded = not self.sidebar_expanded
-        self.animating = True
-        self._animate_ease_out(start, end)
-
-    def _animate_ease_out(self, start, end, duration=0.15):
-        import time
-        start_time = time.time()
-        def _step():
-            elapsed = time.time() - start_time
-            t = elapsed / duration
-            if t >= 1.0:
-                self.sidebar.configure(width=end)
-                self.animating = False
-                if self.sidebar_expanded:
-                    self.sidebar_inner.place_forget()
-                    self.sidebar_inner.pack(fill="both", expand=True)
-                    self.toggle_btn.lift()
-                return
-            eased = t * (2 - t)
-            w = int(start + (end - start) * eased)
-            self.sidebar.configure(width=max(0, w))
-            self.after(10, _step)
-        _step()
 
     # ── Welcome screen ────────────────────────────────────────────────────────
     def _show_welcome(self):
