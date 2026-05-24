@@ -145,9 +145,9 @@ class LoginWindow(ctk.CTk):
 
         if staff:
             full_name = f"{staff['staffFname']} {staff['staffLname']}"
+            user_id = staff['staffID']
             conn.close()
-            # Transition to loading animation screen first
-            self.show_loading_screen("Admin/Staff", full_name)
+            self.show_loading_screen("Admin/Staff", full_name, user_id)
             return
 
         # Check Tutor
@@ -161,15 +161,15 @@ class LoginWindow(ctk.CTk):
 
         if tutor:
             full_name = f"{tutor['tutorFname']} {tutor['tutorLname']}"
+            user_id = tutor['tutorID']
             conn.close()
-            # Transition to loading animation screen first
-            self.show_loading_screen("Tutor", full_name)
+            self.show_loading_screen("Tutor", full_name, user_id)
             return
 
         conn.close()
         messagebox.showerror("Login Failed", "Invalid email or password")
 
-    def show_loading_screen(self, role, name):
+    def show_loading_screen(self, role, name, user_id):
         # hiding the form elements to switch screens
         self.card.place_forget()
 
@@ -180,10 +180,9 @@ class LoginWindow(ctk.CTk):
 
         if self.frames:
             self.animate_gif()
-            # holding the animation scene for 2.5 seconds before launching dashboard
-            self.after(2500, lambda: self.launch_dashboard(role, name))
+            self.after(2500, lambda: self.launch_dashboard(role, name, user_id))
         else:
-            self.launch_dashboard(role, name)
+            self.launch_dashboard(role, name, user_id)
 
     def animate_gif(self):
         if self.loading_label and self.loading_label.winfo_exists():
@@ -194,14 +193,14 @@ class LoginWindow(ctk.CTk):
             # keeping refresh timer at 80ms for performance stability
             self.after(80, self.animate_gif)
 
-    def launch_dashboard(self, role, name):
+    def launch_dashboard(self, role, name, user_id):
         if self.loading_label:
             self.loading_label.destroy()
         for w in self.winfo_children():
             w.destroy()
 
         from dashboard import Dashboard
-        self.dashboard_frame = Dashboard(self, user_role=role, user_name=name)
+        self.dashboard_frame = Dashboard(self, user_role=role, user_name=name, user_id=user_id)
 
 
 if __name__ == "__main__":
