@@ -5,10 +5,17 @@ import random
 DB_NAME = "abc_learning_center.db"
 
 
+def _ensure_attendance_time_column(conn):
+    cols = [row[1] for row in conn.execute("PRAGMA table_info(ATTENDANCE)")]
+    if "attTime" not in cols:
+        conn.execute("ALTER TABLE ATTENDANCE ADD COLUMN attTime TEXT")
+
+
 def get_connection():
     conn = sqlite3.connect(DB_NAME)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA foreign_keys = ON")
+    _ensure_attendance_time_column(conn)
     return conn
 
 
@@ -152,6 +159,7 @@ def init_database():
         attendanceID INTEGER PRIMARY KEY AUTOINCREMENT,
         detailID INTEGER NOT NULL,
         attDate DATE NOT NULL,
+        attTime TEXT,
         attStatus TEXT NOT NULL CHECK(attStatus IN ('Present','Absent','Late')),
         FOREIGN KEY (detailID) REFERENCES REGISTRATION_DETAIL(detailID) ON DELETE CASCADE
     )''')
