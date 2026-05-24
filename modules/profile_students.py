@@ -1,15 +1,64 @@
 import customtkinter as ctk
+from customtkinter import ThemeManager
 from tkinter import messagebox, Toplevel, ttk
 import database
 import calendar
 from datetime import datetime
 from utils.modern_entry import ModernEntry
+from utils.modern_combo import ModernCombo
+
+
+class DatePickerCombo(ModernCombo):
+    """ModernCombo appearance; opens a calendar popup instead of a value list."""
+
+    def __init__(self, master, on_open_calendar, placeholder_text="Date of Birth (MM-DD-YYYY)", **kwargs):
+        kwargs.setdefault("values", [""])
+        super().__init__(master, **kwargs)
+        self._on_open_calendar = on_open_calendar
+        self._placeholder_text = placeholder_text
+        self._has_value = False
+        self._field_font = kwargs.get("font", ctk.CTkFont(family="Inter", size=13))
+        self.set("")
+
+    def _placeholder_text_color(self):
+        colors = ThemeManager.theme["CTkEntry"]["placeholder_text_color"]
+        return colors[1 if ctk.get_appearance_mode() == "Dark" else 0]
+
+    def _show_placeholder(self):
+        self._has_value = False
+        super().set(self._placeholder_text)
+        self.configure(
+            text_color=self._placeholder_text_color(),
+            font=self._field_font,
+        )
+
+    def set(self, value):
+        if value:
+            self._has_value = True
+            super().set(value)
+            self.configure(text_color="black", font=self._field_font)
+        else:
+            self._show_placeholder()
+
+    def get(self):
+        if not self._has_value:
+            return ""
+        val = super().get()
+        if val == self._placeholder_text:
+            return ""
+        return val
+
+    def _open_dropdown_menu(self):
+        if self._on_open_calendar:
+            self._on_open_calendar()
 
 
 class ProfileStudents(ctk.CTkFrame):
-    def __init__(self, parent):
+    def __init__(self, parent, user_role="Admin/Staff", user_id=None):
         super().__init__(parent, fg_color="#e4e4e4", corner_radius=0)
         self.pack(fill="both", expand=True)
+        self.user_role = user_role
+        self.user_id = user_id
 
         if hasattr(parent.master, "welcome_lbl"):
             parent.master.welcome_lbl.pack_forget()
@@ -75,6 +124,21 @@ class ProfileStudents(ctk.CTkFrame):
 
         self.render_add_student_form()
 
+    @staticmethod
+    def _add_combo_underline(parent, combo):
+        """Match ModernEntry: navy underline below combo, bright blue on focus."""
+        underline = ctk.CTkFrame(parent, height=2, fg_color="#15165e", corner_radius=0)
+        underline.pack(fill="x", pady=(0, 2))
+
+        def on_focus(_event=None):
+            underline.configure(fg_color="#122aff")
+
+        def on_unfocus(_event=None):
+            underline.configure(fg_color="#15165e")
+
+        combo.bind("<FocusIn>", on_focus)
+        combo.bind("<FocusOut>", on_unfocus)
+
     def switch_tab(self, tab_target):
         if tab_target == "add":
             self.add_tab_btn.configure(fg_color="#122aff", text_color="#ffffff")
@@ -135,34 +199,20 @@ class ProfileStudents(ctk.CTkFrame):
         meta_row = ctk.CTkFrame(inner_r, fg_color="transparent")
         meta_row.pack(fill="x", pady=4)
 
-        #Gender custom dropdown (same style as DOB button)
-        gender_frame = ctk.CTkFrame(meta_row, fg_color="transparent", height=35)
-        gender_frame.pack(side="left", fill="x", expand=True, padx=(0, 5))
+        # Gender dropdown (ModernCombo — same design as other modules)
+        gender_wrap = ctk.CTkFrame(meta_row, fg_color="transparent")
+        gender_wrap.pack(side="left", padx=(0, 5))
+        self.gender_entry = ModernCombo(gender_wrap, values=["M", "F"], height=35, width=120)
+        self.gender_entry.set("F")
+        self.gender_entry.pack(fill="x")
+        self._add_combo_underline(gender_wrap, self.gender_entry)
 
-        self.gender_entry = ctk.CTkEntry(gender_frame, placeholder_text="Gender", height=35,
-                                         corner_radius=0, fg_color="#ffffff", text_color="black",
-                                         border_width=0)
-        self.gender_entry.pack(side="left", fill="both", expand=True)
-        self.gender_entry.insert(0, "F")
-        self.gender_entry.configure(state="readonly")
-
-        gender_btn = ctk.CTkButton(gender_frame, text="▼", width=35, height=35, corner_radius=0,
-                                   fg_color="#000000", hover_color="#222222", text_color="#ffffff",
-                                   command=self.toggle_gender_dropdown)
-        gender_btn.pack(side="right")
-
-        #DOB custom dropdown
-        dob_combo_frame = ctk.CTkFrame(meta_row, fg_color="transparent", height=35)
-        dob_combo_frame.pack(side="right", fill="x", expand=True, padx=(5, 0))
-
-        self.dob = ctk.CTkEntry(dob_combo_frame, placeholder_text="Date of Birth (YYYY-MM-DD)", height=35,
-                                corner_radius=0, fg_color="#ffffff", text_color="black", border_width=0)
-        self.dob.pack(side="left", fill="both", expand=True)
-
-        dob_dropdown_btn = ctk.CTkButton(dob_combo_frame, text="▼", width=35, height=35, corner_radius=0,
-                                         fg_color="#000000", hover_color="#222222", text_color="#ffffff",
-                                         command=self.popup_flutter_calendar)
-        dob_dropdown_btn.pack(side="right")
+        # DOB picker (ModernCombo appearance; calendar popup unchanged)
+        dob_wrap = ctk.CTkFrame(meta_row, fg_color="transparent")
+        dob_wrap.pack(side="left", fill="x", expand=True, padx=(5, 0))
+        self.dob = DatePickerCombo(dob_wrap, self.popup_flutter_calendar, height=35)
+        self.dob.pack(fill="x")
+        self._add_combo_underline(dob_wrap, self.dob)
 
         self.email = ModernEntry(inner_r, placeholder_text="Email Address",
                                  height=32, font=ctk.CTkFont(family="Inter", size=13))
@@ -219,35 +269,6 @@ class ProfileStudents(ctk.CTkFrame):
                                  fg_color="#122aff", hover_color="#0b1eb3", text_color="#ffffff",
                                  command=self.save_student)
         save_btn.pack(anchor="center")
-
-    def toggle_gender_dropdown(self):
-        if hasattr(self, "_gender_menu") and self._gender_menu.winfo_exists():
-            self._gender_menu.destroy()
-            return
-
-        self.gender_entry.update_idletasks()
-        x = self.gender_entry.winfo_rootx()
-        y = self.gender_entry.winfo_rooty() + self.gender_entry.winfo_height()
-        w = self.gender_entry.winfo_width() + 35
-
-        self._gender_menu = Toplevel(self)
-        self._gender_menu.overrideredirect(True)
-        self._gender_menu.geometry(f"{w}x70+{x}+{y}")
-        self._gender_menu.configure(bg="#000000")
-
-        for val in ["M", "F"]:
-            btn = ctk.CTkButton(self._gender_menu, text=val, height=35, corner_radius=0,
-                                fg_color="#000000", hover_color="#222222", text_color="#ffffff",
-                                anchor="w", command=lambda v=val: self._select_gender(v))
-            btn.pack(fill="x")
-
-    def _select_gender(self, value):
-        self.gender_entry.configure(state="normal")
-        self.gender_entry.delete(0, "end")
-        self.gender_entry.insert(0, value)
-        self.gender_entry.configure(state="readonly")
-        if hasattr(self, "_gender_menu") and self._gender_menu.winfo_exists():
-            self._gender_menu.destroy()
 
     def popup_flutter_calendar(self):
         popup = Toplevel(self)
@@ -391,8 +412,7 @@ class ProfileStudents(ctk.CTkFrame):
 
         def select_date_return(day_num):
             formatted_date = f"{self.current_cal_year}-{self.current_cal_month:02d}-{day_num:02d}"
-            self.dob.delete(0, 'end')
-            self.dob.insert(0, formatted_date)
+            self.dob.set(formatted_date)
             popup.destroy()
 
         update_calendar_grid()
@@ -409,22 +429,15 @@ class ProfileStudents(ctk.CTkFrame):
         search_frame.pack(fill="x", pady=(0, 15))
         search_frame.pack_propagate(False)
 
-        accent_container = ctk.CTkFrame(search_frame, width=6, fg_color="transparent")
-        accent_container.pack(side="left", fill="y", padx=(12, 0), pady=12)
-        accent = ctk.CTkFrame(accent_container, width=6, fg_color="#15165e", corner_radius=3)
-        accent.pack(fill="both", expand=True)
-
         inner = ctk.CTkFrame(search_frame, fg_color="transparent")
         inner.pack(fill="both", expand=True, padx=15, pady=12)
 
         search_row = ctk.CTkFrame(inner, fg_color="transparent")
         search_row.pack(fill="x")
 
-        self.student_search_entry = ctk.CTkEntry(search_row, placeholder_text="Search Student ID, Last Name, First Name...",
-                                                 height=40, corner_radius=8, fg_color="#f8fafc",
-                                                 border_width=1, border_color="#cbd5e1", text_color="black")
+        self.student_search_entry = ModernEntry(search_row, placeholder_text="Search Student ID, Last Name, First Name...",
+                                                height=32, font=ctk.CTkFont(family="Inter", size=13))
         self.student_search_entry.pack(side="left", fill="x", expand=True)
-        # Live suggestion auto-filtering on key release
         self.student_search_entry.bind("<KeyRelease>", lambda e: self.search_students_list())
 
         ctk.CTkButton(search_row, text="SEARCH", width=130, height=40,
@@ -440,16 +453,11 @@ class ProfileStudents(ctk.CTkFrame):
         table_card = ctk.CTkFrame(self.workspace_canvas, fg_color="#ffffff", corner_radius=16, border_width=1, border_color="#cbd5e1")
         table_card.pack(fill="both", expand=True, padx=5)
 
-        accent_container_table = ctk.CTkFrame(table_card, width=6, fg_color="transparent")
-        accent_container_table.pack(side="left", fill="y", padx=(12, 0), pady=12)
-        accent_table = ctk.CTkFrame(accent_container_table, width=6, fg_color="#15165e", corner_radius=3)
-        accent_table.pack(fill="both", expand=True)
-
         self.tree_frame = ctk.CTkFrame(table_card, fg_color="transparent", corner_radius=8)
         self.tree_frame.pack(fill="both", expand=True, padx=15, pady=12)
 
         import tkinter.ttk as ttk
-        columns = ("Student ID", "Last Name", "First Name", "Middle Name", "Gender", "Date of Birth", "Category", "Contact No", "Email")
+        columns = ("#", "Last Name", "First Name", "Middle Name", "Gender", "Date of Birth", "Level", "Contact No", "Email")
 
         # Set modern theme and style
         style = ttk.Style()
@@ -476,10 +484,10 @@ class ProfileStudents(ctk.CTkFrame):
         self.tree.tag_configure("evenrow", background="#f8fafc")
         self.tree.tag_configure("oddrow", background="#ffffff")
 
-        col_widths = [90, 130, 130, 100, 70, 100, 120, 120, 160]
+        col_widths = [40, 130, 130, 100, 70, 100, 120, 120, 160]
         for col, width in zip(columns, col_widths):
             self.tree.heading(col, text=col)
-            self.tree.column(col, width=width, anchor="center")
+            self.tree.column(col, width=width, anchor="center" if col == "#" else "center")
 
         scrollbar = ttk.Scrollbar(self.tree_frame, orient="vertical", command=self.tree.yview)
         self.tree.configure(yscrollcommand=scrollbar.set)
@@ -488,27 +496,32 @@ class ProfileStudents(ctk.CTkFrame):
 
         self.load_all_students_list()
 
-    def load_all_students_list(self):
+    def _populate_student_tree(self, rows):
         for item in self.tree.get_children():
             self.tree.delete(item)
 
+        for idx, row in enumerate(rows):
+            tag = "evenrow" if idx % 2 == 0 else "oddrow"
+            self.tree.insert("", "end", values=(
+                idx + 1,
+                row['studLname'], row['studFname'], row['studMname'] or "—",
+                row['gender'], row['dob'], row['level'] or "Unassigned",
+                row['studContactNo'] or "—", row['studEmail'] or "—",
+            ), tags=(tag,))
+
+    def load_all_students_list(self):
         try:
             conn = database.get_connection()
             cursor = conn.cursor()
             cursor.execute("""
-                SELECT studentID, studLname, studFname, studMname, gender, dob, levelType, studContactNo, studEmail
+                SELECT studentID, studLname, studFname, studMname, gender, dob, level, studContactNo, studEmail
                 FROM STUDENT
-                ORDER BY studentID DESC
+                ORDER BY studentID ASC
             """)
             rows = cursor.fetchall()
             conn.close()
 
-            for idx, row in enumerate(rows):
-                tag = "evenrow" if idx % 2 == 0 else "oddrow"
-                self.tree.insert("", "end", values=(
-                    row['studentID'], row['studLname'], row['studFname'], row['studMname'] or "—",
-                    row['gender'], row['dob'], row['levelType'] or "Unenrolled", row['studContactNo'] or "—", row['studEmail'] or "—"
-                ), tags=(tag,))
+            self._populate_student_tree(rows)
         except Exception as e:
             messagebox.showerror("Database Error", f"Failed to load students: {str(e)}")
 
@@ -518,20 +531,17 @@ class ProfileStudents(ctk.CTkFrame):
             self.load_all_students_list()
             return
 
-        for item in self.tree.get_children():
-            self.tree.delete(item)
-
         try:
             conn = database.get_connection()
             cursor = conn.cursor()
             query = """
-                SELECT studentID, studLname, studFname, studMname, gender, dob, levelType, studContactNo, studEmail
+                SELECT studentID, studLname, studFname, studMname, gender, dob, level, studContactNo, studEmail
                 FROM STUDENT
                 WHERE studentID = ? 
                    OR studLname LIKE ? 
                    OR studFname LIKE ? 
                    OR studMname LIKE ?
-                ORDER BY studentID DESC
+                ORDER BY studentID ASC
             """
             val = f"%{keyword}%"
             try:
@@ -543,12 +553,7 @@ class ProfileStudents(ctk.CTkFrame):
             rows = cursor.fetchall()
             conn.close()
 
-            for idx, row in enumerate(rows):
-                tag = "evenrow" if idx % 2 == 0 else "oddrow"
-                self.tree.insert("", "end", values=(
-                    row['studentID'], row['studLname'], row['studFname'], row['studMname'] or "—",
-                    row['gender'], row['dob'], row['levelType'] or "Unenrolled", row['studContactNo'] or "—", row['studEmail'] or "—"
-                ), tags=(tag,))
+            self._populate_student_tree(rows)
         except Exception as e:
             messagebox.showerror("Database Error", f"Failed to search students: {str(e)}")
 
@@ -558,8 +563,8 @@ class ProfileStudents(ctk.CTkFrame):
             cursor = conn.cursor()
 
             cursor.execute('''
-                INSERT INTO STUDENT (studLname, studFname, studMname, gender, dob, address, studContactNo, studEmail)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                INSERT INTO STUDENT (studLname, studFname, studMname, gender, dob, address, studContactNo, studEmail, level)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'Unassigned')
             ''', (self.lname.get(), self.fname.get(), self.mname.get(),
                   self.gender_entry.get(), self.dob.get(), self.address.get(),
                   self.contact.get(), self.email.get()))
@@ -581,17 +586,16 @@ class ProfileStudents(ctk.CTkFrame):
             messagebox.showerror("Error", f"Failed to save student data: {str(e)}")
 
     def clear_fields(self):
-        self.gender_entry.configure(state="normal")
-        self.gender_entry.delete(0, "end")
-        self.gender_entry.insert(0, "F")
-        self.gender_entry.configure(state="readonly")
+        self.gender_entry.set("F")
 
-        for entry in [self.fname, self.lname, self.mname, self.dob, self.address,
+        for entry in [self.fname, self.lname, self.mname, self.address,
                       self.contact, self.email, self.par_name, self.par_contact, self.relationship]:
             try:
                 entry.delete(0, 'end')
             except Exception:
                 pass
+
+        self.dob.set("")
 
     def back_to_dashboard(self):
         dashboard = self.master.master
