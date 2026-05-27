@@ -19,6 +19,10 @@ COLORS = {
 WINDOW_TITLE = "ABC Learning Center Management System"
 DEFAULT_SIZE = "1280x720"
 
+# Each class session is 2 hours (shown in payment/enrollment UI)
+SESSION_HOURS = 2
+
 # Apply CustomTkinter settings
 ctk.set_appearance_mode("dark")
 ctk.set_default_color_theme("blue")
+
