@@ -90,6 +90,7 @@ CREATE TABLE IF NOT EXISTS SUBJECT (
     level TEXT NOT NULL,
     program TEXT,
     termType TEXT,
+    pricePerTerm REAL,
     isActive INTEGER DEFAULT 1
 );
 
@@ -123,6 +124,9 @@ CREATE TABLE IF NOT EXISTS REGISTRATION_DETAIL (
     detailID INTEGER PRIMARY KEY AUTOINCREMENT,
     registrationID INTEGER NOT NULL,
     subjectID INTEGER NOT NULL,
+    batchID INTEGER,
+    feeAmount REAL,
+    enrollStatus TEXT NOT NULL DEFAULT 'Active',
     FOREIGN KEY (registrationID) REFERENCES REGISTRATION (registrationID) ON DELETE CASCADE,
     FOREIGN KEY (subjectID) REFERENCES SUBJECT (subjectID)
 );
