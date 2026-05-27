@@ -493,6 +493,8 @@ class ProfileStudents(ctk.CTkFrame):
         self.tree.configure(yscrollcommand=scrollbar.set)
         scrollbar.pack(side="right", fill="y")
         self.tree.pack(fill="both", expand=True)
+        
+        self.tree.bind("<Double-1>", self.on_student_double_click)
 
         self.load_all_students_list()
 
@@ -502,12 +504,145 @@ class ProfileStudents(ctk.CTkFrame):
 
         for idx, row in enumerate(rows):
             tag = "evenrow" if idx % 2 == 0 else "oddrow"
-            self.tree.insert("", "end", values=(
+            self.tree.insert("", "end", iid=str(row['studentID']), values=(
                 idx + 1,
                 row['studLname'], row['studFname'], row['studMname'] or "—",
                 row['gender'], row['dob'], row['level'] or "Unassigned",
                 row['studContactNo'] or "—", row['studEmail'] or "—",
             ), tags=(tag,))
+
+    def on_student_double_click(self, event):
+        item_id = self.tree.identify_row(event.y)
+        if not item_id:
+            return
+        try:
+            student_id = int(item_id)
+        except ValueError:
+            return
+        self.show_student_detail_popup(student_id)
+
+    def show_student_detail_popup(self, student_id):
+        try:
+            conn = database.get_connection()
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT studentID, studLname, studFname, studMname, gender, dob, address, studContactNo, studEmail, level
+                FROM STUDENT
+                WHERE studentID = ?
+            """, (student_id,))
+            student = cursor.fetchone()
+
+            cursor.execute("""
+                SELECT parName, parContactNo, parEmail, relationship
+                FROM PARENT
+                WHERE studentID = ?
+            """, (student_id,))
+            parent = cursor.fetchone()
+            conn.close()
+        except Exception as e:
+            messagebox.showerror("Database Error", f"Failed to retrieve student details: {e}")
+            return
+
+        if not student:
+            messagebox.showerror("Error", "Student not found.")
+            return
+
+        popup = ctk.CTkToplevel(self)
+        popup.title(f"Student Profile - {student['studFname']} {student['studLname']}")
+        popup.geometry("680x520")
+        popup.resizable(False, False)
+        popup.configure(fg_color="#e4e4e4")
+        popup.transient(self.winfo_toplevel())
+        
+        # Center popup on screen
+        screen_width = popup.winfo_screenwidth()
+        screen_height = popup.winfo_screenheight()
+        x = (screen_width - 680) // 2
+        y = (screen_height - 520) // 2
+        popup.geometry(f"680x520+{x}+{y}")
+        
+        try:
+            popup.grab_set()
+        except Exception:
+            pass
+
+        # Accent Top Bar
+        top_bar = ctk.CTkFrame(popup, height=60, fg_color="#15165e", corner_radius=0)
+        top_bar.pack(fill="x", side="top")
+        top_bar.pack_propagate(False)
+
+        ctk.CTkLabel(top_bar, text=f"STUDENT PROFILE: {student['studFname'].upper()} {student['studLname'].upper()}",
+                     font=ctk.CTkFont(family="Inter", size=16, weight="bold"),
+                     text_color="#ffffff").pack(side="left", padx=20, pady=15)
+
+        container = ctk.CTkFrame(popup, fg_color="transparent")
+        container.pack(fill="both", expand=True, padx=25, pady=15)
+
+        def create_detail_card(parent_widget, title):
+            card = ctk.CTkFrame(parent_widget, fg_color="#ffffff", corner_radius=12, border_width=1, border_color="#cbd5e1")
+            card.pack(fill="x", pady=(0, 15))
+            
+            acc_wrap = ctk.CTkFrame(card, width=5, fg_color="transparent")
+            acc_wrap.pack(side="left", fill="y", padx=(10, 0), pady=10)
+            ctk.CTkFrame(acc_wrap, width=5, fg_color="#15165e", corner_radius=2.5).pack(fill="both", expand=True)
+            
+            inner = ctk.CTkFrame(card, fg_color="transparent")
+            inner.pack(fill="both", expand=True, padx=12, pady=10)
+            
+            ctk.CTkLabel(inner, text=title, font=ctk.CTkFont(family="Inter", size=13, weight="bold"), text_color="#15165e").pack(anchor="w", pady=(0, 8))
+            return inner
+
+        def add_info_row(parent, row_idx, label, val):
+            row_frame = ctk.CTkFrame(parent, fg_color="transparent")
+            row_frame.grid(row=row_idx // 2, column=row_idx % 2, sticky="ew", pady=3, padx=5)
+            
+            ctk.CTkLabel(row_frame, text=f"{label}:", font=ctk.CTkFont(family="Inter", size=11, weight="bold"), text_color="#64748b", width=105, anchor="w").pack(side="left")
+            ctk.CTkLabel(row_frame, text=str(val), font=ctk.CTkFont(family="Inter", size=12), text_color="#0f172a", anchor="w").pack(side="left", fill="x", expand=True)
+
+        # Student Details Card
+        student_inner = create_detail_card(container, "STUDENT INFORMATION")
+        grid_s = ctk.CTkFrame(student_inner, fg_color="transparent")
+        grid_s.pack(fill="x")
+        grid_s.columnconfigure(0, weight=1)
+        grid_s.columnconfigure(1, weight=1)
+
+        add_info_row(grid_s, 0, "Student ID", f"STUD-{student['studentID']:04d}")
+        add_info_row(grid_s, 1, "Full Name", f"{student['studLname']}, {student['studFname']} {student['studMname'] or ''}")
+        add_info_row(grid_s, 2, "Grade Level", student['level'] or "Unassigned")
+        add_info_row(grid_s, 3, "Gender", student['gender'])
+        add_info_row(grid_s, 4, "Date of Birth", student['dob'])
+        add_info_row(grid_s, 5, "Contact No", student['studContactNo'] or "—")
+        add_info_row(grid_s, 6, "Email Address", student['studEmail'] or "—")
+
+        addr_frame = ctk.CTkFrame(student_inner, fg_color="transparent")
+        addr_frame.pack(fill="x", pady=(8, 0), padx=5)
+        ctk.CTkLabel(addr_frame, text="Full Address:", font=ctk.CTkFont(family="Inter", size=11, weight="bold"), text_color="#64748b", width=105, anchor="w").pack(side="left")
+        ctk.CTkLabel(addr_frame, text=student['address'] or "—", font=ctk.CTkFont(family="Inter", size=12), text_color="#0f172a", anchor="w", justify="left", wraplength=480).pack(side="left", fill="x", expand=True)
+
+        # Parent Details Card
+        parent_inner = create_detail_card(container, "PARENT / GUARDIAN INFORMATION")
+        if parent:
+            grid_p = ctk.CTkFrame(parent_inner, fg_color="transparent")
+            grid_p.pack(fill="x")
+            grid_p.columnconfigure(0, weight=1)
+            grid_p.columnconfigure(1, weight=1)
+
+            add_info_row(grid_p, 0, "Parent Name", parent['parName'])
+            add_info_row(grid_p, 1, "Relationship", parent['relationship'])
+            add_info_row(grid_p, 2, "Contact No", parent['parContactNo'] or "—")
+            add_info_row(grid_p, 3, "Email Address", parent['parEmail'] or "—")
+        else:
+            ctk.CTkLabel(parent_inner, text="No parent/guardian information found.", font=ctk.CTkFont(family="Inter", size=12, italic=True), text_color="#ef4444").pack(anchor="w", pady=5)
+
+        # Close Button
+        btn_frame = ctk.CTkFrame(popup, fg_color="transparent")
+        btn_frame.pack(fill="x", pady=(5, 15))
+        close_btn = ctk.CTkButton(btn_frame, text="CLOSE PROFILE",
+                                  font=ctk.CTkFont(family="Inter", size=13, weight="bold"),
+                                  fg_color="#374151", hover_color="#1f2937", text_color="#ffffff",
+                                  width=160, height=38, corner_radius=8,
+                                  command=popup.destroy)
+        close_btn.pack(anchor="center")
 
     def load_all_students_list(self):
         try:
