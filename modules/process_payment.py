@@ -146,15 +146,17 @@ class ProcessPayment(ctk.CTkFrame):
         else:
             ctk.CTkLabel(top_bar, text="ABC", font=ctk.CTkFont(family="Inter", size=18, weight="bold"), text_color="#ffffff").pack(side="right", padx=30)
 
-        # Workspace Grid Layout
+        # Workspace Grid Layout — fills all available height
         workspace = ctk.CTkFrame(self, fg_color="transparent")
-        workspace.pack(fill="both", expand=True, padx=40, pady=25)
+        workspace.pack(fill="both", expand=True, padx=40, pady=12)
         workspace.columnconfigure(0, weight=1, uniform="workspace_col")
         workspace.columnconfigure(1, weight=1, uniform="workspace_col")
+        workspace.rowconfigure(0, weight=1)
 
         # --- LEFT COLUMN: SEARCH & ENROLLEE DETAILS ---
         left_col = ctk.CTkFrame(workspace, fg_color="transparent")
         left_col.grid(row=0, column=0, sticky="nsew", padx=(0, 15))
+        left_col.rowconfigure(2, weight=1)
 
         ctk.CTkLabel(
             left_col, text="SEARCH STUDENT ENROLLMENT",
@@ -199,21 +201,25 @@ class ProcessPayment(ctk.CTkFrame):
         right_col = ctk.CTkFrame(workspace, fg_color="transparent")
         right_col.grid(row=0, column=1, sticky="nsew", padx=(15, 0))
 
+        # Configure right_col grid rows & columns
+        right_col.columnconfigure(0, weight=1)
+        right_col.rowconfigure(4, weight=1)  # History card takes all dynamic vertical space
+
         ctk.CTkLabel(
             right_col, text="RECORD PAYMENT",
             font=ctk.CTkFont(family="Inter", size=15, weight="bold"),
             text_color="#1e293b"
-        ).pack(anchor="w", pady=(0, 6))
+        ).grid(row=0, column=0, sticky="w", pady=(0, 6))
 
         self.balance_banner = ctk.CTkFrame(right_col, fg_color="#eef2ff", corner_radius=12,
                                            border_width=1, border_color="#c7d2fe")
-        self.balance_banner.pack(fill="x", pady=(0, 10))
+        self.balance_banner.grid(row=1, column=0, sticky="ew", pady=(0, 10))
         self.balance_banner_inner = ctk.CTkFrame(self.balance_banner, fg_color="transparent")
         self.balance_banner_inner.pack(fill="x", padx=16, pady=12)
         self._render_balance_banner_placeholder()
 
         pay_card, self.pay_inner = self._card(right_col)
-        pay_card.pack(fill="x", pady=(0, 10))
+        pay_card.grid(row=2, column=0, sticky="ew", pady=(0, 10))
         self.pay_inner.columnconfigure(1, weight=1)
 
         ctk.CTkLabel(
@@ -278,31 +284,31 @@ class ProcessPayment(ctk.CTkFrame):
             right_col, text="PAYMENT HISTORY",
             font=ctk.CTkFont(family="Inter", size=13, weight="bold"),
             text_color="#1e293b"
-        ).pack(anchor="w", pady=(4, 4))
+        ).grid(row=3, column=0, sticky="w", pady=(4, 4))
 
-        self.history_card, self.history_inner = self._card(right_col, height=140, scrollable=True)
-        self.history_card.pack(fill="both", expand=True, pady=(0, 10))
+        self.history_card, self.history_inner = self._card(right_col, scrollable=True)
+        self.history_card.grid(row=4, column=0, sticky="nsew", pady=(0, 8))
         self._render_history_placeholder()
 
         self.record_btn = ctk.CTkButton(
             right_col,
             text="RECORD PAYMENT & GENERATE RECEIPT",
-            font=ctk.CTkFont(family="Inter", size=14, weight="bold"),
-            height=52, corner_radius=8,
+            font=ctk.CTkFont(family="Inter", size=13, weight="bold"),
+            height=44, corner_radius=8,
             fg_color="#122aff", hover_color="#0b1eb3", text_color="#ffffff",
             command=self.process_payment
         )
-        self.record_btn.pack(fill="x", pady=(10, 10))
+        self.record_btn.grid(row=5, column=0, sticky="ew", pady=(6, 4))
 
         self.clear_btn = ctk.CTkButton(
             right_col,
             text="CLEAR FORM",
             font=ctk.CTkFont(family="Inter", size=13, weight="bold"),
-            height=40, corner_radius=8,
+            height=44, corner_radius=8,
             fg_color="#cbd5e1", hover_color="#94a3b8", text_color="#1e293b",
             command=self.clear_form
         )
-        self.clear_btn.pack(fill="x")
+        self.clear_btn.grid(row=6, column=0, sticky="ew")
         self.after_idle(self._on_method_changed)
 
     def _on_search_key(self, event):
