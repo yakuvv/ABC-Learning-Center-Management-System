@@ -1,14 +1,111 @@
 # database.py
+import os
 import sqlite3
 import random
 
-DB_NAME = "abc_learning_center.db"
+DB_NAME = os.path.join(os.path.dirname(os.path.abspath(__file__)), "abc_learning_center.db")
+
+# Per subject per term (2-hour sessions); by student grade level
+GRADE_TERM_PRICES = {
+    (1, 3): 900.0,
+    (4, 6): 1000.0,
+    (7, 8): 1100.0,
+    (9, 10): 1200.0,
+    (11, 12): 1400.0,
+}
+
+
+def price_for_level(level: str) -> float:
+    """Return tuition per subject per term for a grade level string (e.g. 'Grade 5')."""
+    if not level:
+        return 0.0
+    digits = "".join(ch for ch in level if ch.isdigit())
+    if not digits:
+        return 0.0
+    grade = int(digits)
+    for (lo, hi), price in GRADE_TERM_PRICES.items():
+        if lo <= grade <= hi:
+            return price
+    return 0.0
+
+
+def _ensure_payment_time_column(conn):
+    table = conn.execute(
+        "SELECT 1 FROM sqlite_master WHERE type='table' AND name='PAYMENT'"
+    ).fetchone()
+    if not table:
+        return
+    cols = [row[1] for row in conn.execute("PRAGMA table_info(PAYMENT)")]
+    if "payTime" not in cols:
+        conn.execute("ALTER TABLE PAYMENT ADD COLUMN payTime TEXT")
+    if "amountTendered" not in cols:
+        conn.execute("ALTER TABLE PAYMENT ADD COLUMN amountTendered REAL")
+    if "changeDue" not in cols:
+        conn.execute("ALTER TABLE PAYMENT ADD COLUMN changeDue REAL")
+    conn.commit()
 
 
 def _ensure_attendance_time_column(conn):
+    # Fresh databases will not have tables yet; avoid ALTER TABLE before init.
+    table = conn.execute(
+        "SELECT 1 FROM sqlite_master WHERE type='table' AND name='ATTENDANCE'"
+    ).fetchone()
+    if not table:
+        return
     cols = [row[1] for row in conn.execute("PRAGMA table_info(ATTENDANCE)")]
     if "attTime" not in cols:
         conn.execute("ALTER TABLE ATTENDANCE ADD COLUMN attTime TEXT")
+
+
+def _ensure_pricing_columns(conn):
+    """Add pricePerTerm / feeAmount and backfill from grade-level pricing."""
+    if not conn.execute(
+        "SELECT 1 FROM sqlite_master WHERE type='table' AND name='SUBJECT'"
+    ).fetchone():
+        return
+    subject_cols = [row[1] for row in conn.execute("PRAGMA table_info(SUBJECT)")]
+    if "pricePerTerm" not in subject_cols:
+        conn.execute("ALTER TABLE SUBJECT ADD COLUMN pricePerTerm REAL")
+
+    detail_cols = [row[1] for row in conn.execute("PRAGMA table_info(REGISTRATION_DETAIL)")]
+    if "feeAmount" not in detail_cols:
+        conn.execute("ALTER TABLE REGISTRATION_DETAIL ADD COLUMN feeAmount REAL")
+
+    levels = conn.execute("SELECT DISTINCT level FROM SUBJECT WHERE level IS NOT NULL").fetchall()
+    for row in levels:
+        level = row[0]
+        price = price_for_level(level)
+        if price > 0:
+            conn.execute(
+                "UPDATE SUBJECT SET pricePerTerm = ? WHERE level = ?",
+                (price, level),
+            )
+
+    conn.execute(
+        """
+        UPDATE REGISTRATION_DETAIL
+        SET feeAmount = (
+            SELECT COALESCE(s.pricePerTerm, 0)
+            FROM SUBJECT s
+            WHERE s.subjectID = REGISTRATION_DETAIL.subjectID
+        )
+        WHERE feeAmount IS NULL OR feeAmount = 0
+        """
+    )
+    missing = conn.execute(
+        """
+        SELECT rd.detailID, r.level
+        FROM REGISTRATION_DETAIL rd
+        JOIN REGISTRATION r ON r.registrationID = rd.registrationID
+        WHERE rd.feeAmount IS NULL OR rd.feeAmount = 0
+        """
+    ).fetchall()
+    for detail_id, level in missing:
+        conn.execute(
+            "UPDATE REGISTRATION_DETAIL SET feeAmount = ? WHERE detailID = ?",
+            (price_for_level(level), detail_id),
+        )
+    conn.commit()
 
 
 def get_connection():
@@ -16,6 +113,8 @@ def get_connection():
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA foreign_keys = ON")
     _ensure_attendance_time_column(conn)
+    _ensure_pricing_columns(conn)
+    _ensure_payment_time_column(conn)
     return conn
 
 
@@ -45,6 +144,7 @@ def clear_all_data(db_path: str | None = None):
     tables = [
         "RECEIPT", "PAYMENT", "GRADE", "ATTENDANCE",
         "REGISTRATION_DETAIL", "REGISTRATION",
+        "BATCH",
         "PARENT", "STUDENT", "SUBJECT", "STAFF", "TUTOR",
     ]
     conn = sqlite3.connect(path)
@@ -127,7 +227,23 @@ def init_database():
         level TEXT NOT NULL,
         program TEXT,
         termType TEXT,
+        pricePerTerm REAL,
         isActive INTEGER DEFAULT 1
+    )''')
+
+    cursor.execute('''
+    CREATE TABLE IF NOT EXISTS BATCH (
+        batchID INTEGER PRIMARY KEY AUTOINCREMENT,
+        batchCode TEXT UNIQUE NOT NULL,
+        subjectID INTEGER NOT NULL,
+        level TEXT NOT NULL,
+        schedule TEXT NOT NULL,
+        batchLabel TEXT NOT NULL,
+        tutorID INTEGER,
+        capacity INTEGER NOT NULL DEFAULT 15,
+        isActive INTEGER NOT NULL DEFAULT 1,
+        FOREIGN KEY (subjectID) REFERENCES SUBJECT(subjectID),
+        FOREIGN KEY (tutorID) REFERENCES TUTOR(tutorID)
     )''')
 
     cursor.execute('''
@@ -150,8 +266,12 @@ def init_database():
         detailID INTEGER PRIMARY KEY AUTOINCREMENT,
         registrationID INTEGER NOT NULL,
         subjectID INTEGER NOT NULL,
+        batchID INTEGER,
+        feeAmount REAL,
+        enrollStatus TEXT NOT NULL DEFAULT 'Active' CHECK(enrollStatus IN ('Active','Completed','Dropped')),
         FOREIGN KEY (registrationID) REFERENCES REGISTRATION(registrationID) ON DELETE CASCADE,
-        FOREIGN KEY (subjectID) REFERENCES SUBJECT(subjectID)
+        FOREIGN KEY (subjectID) REFERENCES SUBJECT(subjectID),
+        FOREIGN KEY (batchID) REFERENCES BATCH(batchID)
     )''')
 
     cursor.execute('''
@@ -182,7 +302,10 @@ def init_database():
         paymentID INTEGER PRIMARY KEY AUTOINCREMENT,
         registrationID INTEGER NOT NULL,
         payDate DATE DEFAULT CURRENT_DATE,
+        payTime TEXT,
         amount REAL NOT NULL,
+        amountTendered REAL,
+        changeDue REAL,
         payMethod TEXT NOT NULL DEFAULT 'Cash',
         payStatus TEXT NOT NULL DEFAULT 'Paid',
         FOREIGN KEY (registrationID) REFERENCES REGISTRATION(registrationID) ON DELETE CASCADE
