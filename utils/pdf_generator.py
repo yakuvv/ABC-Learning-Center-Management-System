@@ -4,10 +4,26 @@ from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, Tabl
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib import colors
 
+def _receipt_payment_lines(r):
+    lines = [
+        f"Amount Paid: <b>₱{float(r['amount']):,.2f}</b>",
+        f"Payment Method: {r['method']}",
+    ]
+    if (r.get("method") or "").lower() == "cash":
+        tendered = r.get("amount_tendered")
+        if tendered is not None:
+            lines.append(f"Cash Received: ₱{float(tendered):,.2f}")
+        change = r.get("change_due")
+        if change is not None and float(change) > 0:
+            lines.append(f"Change: ₱{float(change):,.2f}")
+    lines.append("Payment Status: PAID")
+    return "<br/>".join(lines)
+
+
 def generate_receipt_pdf(filepath, r):
     """
     Generate an official receipt PDF.
-    r keys: receipt_number, date, amount, method, student_name, school_id, grade_level, term, school_year
+    r keys: receipt_number, date, amount, amount_tendered, change_due, method, ...
     """
     doc = SimpleDocTemplate(filepath, pagesize=letter, leftMargin=36, rightMargin=36, topMargin=36, bottomMargin=36)
     story = []
@@ -71,7 +87,7 @@ def generate_receipt_pdf(filepath, r):
         [Paragraph("<b>Student Details</b>", bold_style), Paragraph("<b>Payment Details</b>", bold_style)],
         [
             Paragraph(f"School ID: {r['school_id']}<br/>Student Name: {r['student_name']}<br/>Grade Level: {r['grade_level']}<br/>School Year: {r['school_year']}<br/>Term: {r['term']}", normal_style),
-            Paragraph(f"Amount Paid: <b>₱{float(r['amount']):,.2f}</b><br/>Payment Method: {r['method']}<br/>Payment Status: PAID", normal_style)
+            Paragraph(_receipt_payment_lines(r), normal_style)
         ]
     ]
     details_table = Table(details_data, colWidths=[270, 270])
@@ -80,7 +96,26 @@ def generate_receipt_pdf(filepath, r):
         ('BOTTOMPADDING', (0,0), (-1,-1), 8),
     ]))
     story.append(details_table)
-    
+
+    enrolled = r.get("enrolled_lines") or []
+    if enrolled:
+        story.append(Spacer(1, 12))
+        story.append(Paragraph(
+            "<b>Enrolled Subjects (per term · 2-hour sessions)</b>", bold_style
+        ))
+        for line in enrolled:
+            story.append(Paragraph(f"• {line}", normal_style))
+
+    if r.get("total_due") is not None:
+        story.append(Spacer(1, 10))
+        bal_after = r.get("balance_after", 0)
+        story.append(Paragraph(
+            f"<b>Enrollment fees (term):</b> ₱{float(r['total_due']):,.2f}<br/>"
+            f"<b>Total paid to date:</b> ₱{float(r.get('total_paid', r['amount'])):,.2f}<br/>"
+            f"<b>Remaining balance:</b> ₱{float(bal_after):,.2f}",
+            normal_style,
+        ))
+
     story.append(Spacer(1, 40))
     
     # Message / Thank You
