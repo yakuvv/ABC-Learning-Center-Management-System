@@ -12,47 +12,47 @@ class ModernCalendar(ctk.CTkFrame):
         
         self.cal = calendar.TextCalendar(calendar.SUNDAY)
         
-        # Header frame
+        # Header frame - compact padding
         self.header_frame = ctk.CTkFrame(self, fg_color="transparent")
-        self.header_frame.pack(fill="x", padx=16, pady=(16, 12))
+        self.header_frame.pack(fill="x", padx=14, pady=(6, 2))
         
-        self.prev_btn = ctk.CTkButton(self.header_frame, text="<", width=32, height=32,
+        self.prev_btn = ctk.CTkButton(self.header_frame, text="<", width=24, height=24,
                                       fg_color="transparent", text_color="#64748b", hover_color="#f1f5f9",
-                                      font=ctk.CTkFont(family="Inter", size=15, weight="bold"),
+                                      font=ctk.CTkFont(family="Inter", size=12, weight="bold"),
                                       command=self._prev_month)
         self.prev_btn.pack(side="left")
         
         self.month_lbl = ctk.CTkLabel(self.header_frame, text="",
-                                      font=ctk.CTkFont(family="Inter", size=15, weight="bold"),
+                                      font=ctk.CTkFont(family="Inter", size=12, weight="bold"),
                                       text_color="#0f172a")
         self.month_lbl.pack(side="left", expand=True)
         
-        self.next_btn = ctk.CTkButton(self.header_frame, text=">", width=32, height=32,
+        self.next_btn = ctk.CTkButton(self.header_frame, text=">", width=24, height=24,
                                       fg_color="transparent", text_color="#64748b", hover_color="#f1f5f9",
-                                      font=ctk.CTkFont(family="Inter", size=15, weight="bold"),
+                                      font=ctk.CTkFont(family="Inter", size=12, weight="bold"),
                                       command=self._next_month)
         self.next_btn.pack(side="right")
         
-        # Days grid
+        # Days grid - compact padding
         self.grid_frame = ctk.CTkFrame(self, fg_color="transparent")
-        self.grid_frame.pack(fill="both", expand=True, padx=16, pady=(0, 16))
+        self.grid_frame.pack(fill="both", expand=True, padx=14, pady=(0, 6))
         
         days_of_week = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"]
         for col, day in enumerate(days_of_week):
             lbl = ctk.CTkLabel(self.grid_frame, text=day,
-                               font=ctk.CTkFont(family="Inter", size=12, weight="bold"),
+                               font=ctk.CTkFont(family="Inter", size=10, weight="bold"),
                                text_color="#94a3b8")
-            lbl.grid(row=0, column=col, padx=2, pady=(0, 8))
+            lbl.grid(row=0, column=col, padx=1, pady=(0, 2))
             self.grid_frame.grid_columnconfigure(col, weight=1)
             
         self.day_buttons = {}
         for r in range(1, 7):
             for c in range(7):
-                btn = ctk.CTkButton(self.grid_frame, text="", width=34, height=34,
+                btn = ctk.CTkButton(self.grid_frame, text="", width=24, height=24,
                                     fg_color="transparent", text_color="#334155",
-                                    hover_color="#e0e7ff", corner_radius=17,
-                                    font=ctk.CTkFont(family="Inter", size=13))
-                btn.grid(row=r, column=c, padx=2, pady=2)
+                                    hover_color="#e0e7ff", corner_radius=12,
+                                    font=ctk.CTkFont(family="Inter", size=11))
+                btn.grid(row=r, column=c, padx=1, pady=1)
                 self.day_buttons[(r, c)] = btn
                 
         self._update_calendar()
