@@ -1,22 +1,16 @@
 """Term dropdown options by level (ABC Learning Center tutorial center)."""
 
-PERIOD_TERMS = ["1st Period", "2nd Period", "3rd Period", "4th Period"]
-SEMESTER_TERMS = ["1st Semester", "2nd Semester"]
-
-SENIOR_HIGH_LEVELS = ("Grade 11", "Grade 12")
+TERM_OPTIONS = ["Term 1", "Term 2"]
 
 
 def get_term_options(level: str) -> list:
     """
     Return Term dropdown values for the given level string (e.g. 'Grade 7').
-    Grade 11–12: semesters; Grade 7–10 (and elementary): periods.
+    This proposed system uses 2 terms only for all levels.
     """
     if not level or not str(level).strip():
         return []
-    level = str(level).strip()
-    if level in SENIOR_HIGH_LEVELS:
-        return list(SEMESTER_TERMS)
-    return list(PERIOD_TERMS)
+    return list(TERM_OPTIONS)
 
 
 def apply_term_combo_for_level(combo, level: str):
