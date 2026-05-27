@@ -201,8 +201,8 @@ class Dashboard(ctk.CTkFrame):
             ctk_logo = ctk.CTkImage(light_image=logo_img, dark_image=logo_img, size=(42, 42))
             ctk.CTkLabel(top_bar, image=ctk_logo, text="").pack(side="right", padx=(0, 8))
 
-        scroll = ctk.CTkScrollableFrame(self.main_content,
-                                        fg_color="transparent", corner_radius=0)
+        scroll = ctk.CTkFrame(self.main_content,
+                              fg_color="transparent", corner_radius=0)
         scroll.pack(fill="both", expand=True, padx=28, pady=8)
 
         now = datetime.now()
@@ -211,8 +211,8 @@ class Dashboard(ctk.CTkFrame):
 
         greet_card = ctk.CTkFrame(scroll, fg_color="#ffffff", corner_radius=16,
                                    border_width=1, border_color="#cbd5e1",
-                                   height=52)
-        greet_card.pack(fill="x", pady=(0, 8))
+                                   height=46)
+        greet_card.pack(fill="x", pady=(0, 4))
         greet_card.pack_propagate(False)
 
         greet_inner = ctk.CTkFrame(greet_card, fg_color="transparent")
@@ -221,7 +221,7 @@ class Dashboard(ctk.CTkFrame):
         row = ctk.CTkFrame(greet_inner, fg_color="transparent")
         row.pack(fill="both", expand=True)
         ctk.CTkLabel(row,
-                     text=f"{greeting}, {self.user_name}! 👋",
+                     text=f"{greeting}, {self.user_name}!",
                      font=ctk.CTkFont(family="Inter", size=18, weight="bold"),
                      text_color="#0f172a", anchor="w").pack(side="left", pady=0)
         ctk.CTkLabel(row,
@@ -234,27 +234,55 @@ class Dashboard(ctk.CTkFrame):
             import database
             conn = database.get_connection()
             cursor = conn.cursor()
-            cursor.execute("SELECT COUNT(*) AS c FROM STUDENT")
-            student_count = cursor.fetchone()["c"]
-            cursor.execute("SELECT COUNT(*) AS c FROM REGISTRATION WHERE regStatus='Active'")
-            enr_count = cursor.fetchone()["c"]
-            cursor.execute("SELECT COUNT(*) AS c FROM PAYMENT")
-            pay_count = cursor.fetchone()["c"]
-            cursor.execute("SELECT COUNT(*) AS c FROM ATTENDANCE WHERE attDate=date('now')")
-            att_today = cursor.fetchone()["c"]
+            if is_tutor and self.user_id:
+                # Scoped to tutor's assigned batches
+                cursor.execute("""
+                    SELECT COUNT(DISTINCT r.studentID) AS c
+                    FROM REGISTRATION_DETAIL rd
+                    JOIN BATCH b ON rd.batchID = b.batchID
+                    JOIN REGISTRATION r ON rd.registrationID = r.registrationID
+                    WHERE b.tutorID = ? AND rd.enrollStatus = 'Active'
+                """, (self.user_id,))
+                student_count = cursor.fetchone()["c"]
+                cursor.execute("""
+                    SELECT COUNT(DISTINCT r.registrationID) AS c
+                    FROM REGISTRATION_DETAIL rd
+                    JOIN BATCH b ON rd.batchID = b.batchID
+                    JOIN REGISTRATION r ON rd.registrationID = r.registrationID
+                    WHERE b.tutorID = ? AND r.regStatus = 'Active'
+                """, (self.user_id,))
+                enr_count = cursor.fetchone()["c"]
+                pay_count = 0  # Not shown for tutors
+                cursor.execute("""
+                    SELECT COUNT(*) AS c
+                    FROM ATTENDANCE a
+                    JOIN REGISTRATION_DETAIL rd ON a.detailID = rd.detailID
+                    JOIN BATCH b ON rd.batchID = b.batchID
+                    WHERE b.tutorID = ? AND a.attDate = date('now')
+                """, (self.user_id,))
+                att_today = cursor.fetchone()["c"]
+            else:
+                cursor.execute("SELECT COUNT(*) AS c FROM STUDENT")
+                student_count = cursor.fetchone()["c"]
+                cursor.execute("SELECT COUNT(*) AS c FROM REGISTRATION WHERE regStatus='Active'")
+                enr_count = cursor.fetchone()["c"]
+                cursor.execute("SELECT COUNT(*) AS c FROM PAYMENT")
+                pay_count = cursor.fetchone()["c"]
+                cursor.execute("SELECT COUNT(*) AS c FROM ATTENDANCE WHERE attDate=date('now')")
+                att_today = cursor.fetchone()["c"]
             conn.close()
         except Exception:
             student_count = enr_count = pay_count = att_today = 0
 
-        self._section_label(scroll, "OVERVIEW")
+        self._section_label(scroll, "OVERVIEW", pady=(0, 4))
 
         # Plain white wrapper card for all 4 stat tiles
         overview_card = ctk.CTkFrame(scroll, fg_color="#ffffff", corner_radius=16,
                                      border_width=1, border_color="#e2e8f0")
-        overview_card.pack(fill="x", pady=(0, 10))
+        overview_card.pack(fill="x", pady=(0, 6))
 
         stats_row = ctk.CTkFrame(overview_card, fg_color="transparent")
-        stats_row.pack(fill="x", padx=16, pady=10)
+        stats_row.pack(fill="x", padx=16, pady=6)
 
         stat_items = [
             ("Total Students",     str(student_count), "#122aff", "#eef2ff"),
@@ -278,21 +306,22 @@ class Dashboard(ctk.CTkFrame):
             top_row = ctk.CTkFrame(inner, fg_color="transparent")
             top_row.pack(fill="x")
             ctk.CTkLabel(top_row, text=val,
-                         font=ctk.CTkFont(family="Inter", size=50, weight="bold"),
+                         font=ctk.CTkFont(family="Inter", size=42, weight="bold"),
                          text_color=color).pack(side="left")
             ctk.CTkLabel(inner, text=label,
                          font=ctk.CTkFont(family="Inter", size=10),
                          text_color="#64748b").pack(anchor="w", pady=(1, 0))
 
         body_row = ctk.CTkFrame(scroll, fg_color="transparent")
-        body_row.pack(fill="both", expand=True, pady=(0, 10))
+        body_row.pack(fill="both", expand=True, pady=(0, 8))
         body_row.columnconfigure(0, weight=3)
         body_row.columnconfigure(1, weight=5)
+        body_row.rowconfigure(0, weight=1)
 
         left_col = ctk.CTkFrame(body_row, fg_color="transparent")
         left_col.grid(row=0, column=0, sticky="nsew", padx=(0, 14))
 
-        self._section_label(left_col, "QUICK ACCESS")
+        self._section_label(left_col, "QUICK ACCESS", pady=(0, 4))
 
         all_module_items = [
             ("Profile Students",  "Add / view student profiles",  "#122aff", self.open_profile,  "Profile Students"),
@@ -310,15 +339,15 @@ class Dashboard(ctk.CTkFrame):
         # Plain white wrapper card for all quick access rows
         qa_card = ctk.CTkFrame(left_col, fg_color="#ffffff", corner_radius=16,
                                border_width=1, border_color="#e2e8f0")
-        qa_card.pack(fill="x")
+        qa_card.pack(fill="x", expand=False)
         qa_inner = ctk.CTkFrame(qa_card, fg_color="transparent")
-        qa_inner.pack(fill="x", padx=14, pady=8)
+        qa_inner.pack(fill="x", padx=14, pady=4)
 
         for title, desc, color, cmd in module_items:
             m_card = ctk.CTkFrame(qa_inner, fg_color="#f8fafc", corner_radius=10,
                                   border_width=1, border_color="#e2e8f0",
-                                  cursor="hand2", height=42)
-            m_card.pack(fill="x", pady=(0, 4))
+                                  cursor="hand2", height=32, width=400)
+            m_card.pack(fill="x", pady=(0, 2))
             m_card.pack_propagate(False)
 
             row_inner = ctk.CTkFrame(m_card, fg_color="transparent")
@@ -345,7 +374,7 @@ class Dashboard(ctk.CTkFrame):
 
         try:
             from utils.modern_calendar import ModernCalendar
-            self._section_label(left_col, "CALENDAR", pady=(14, 6))
+            self._section_label(left_col, "CALENDAR", pady=(4, 2))
             calendar_widget = ModernCalendar(left_col)
             calendar_widget.pack(fill="x", pady=(0, 0))
         except Exception as e:
@@ -381,36 +410,57 @@ class Dashboard(ctk.CTkFrame):
             import database
             conn = database.get_connection()
             cur = conn.cursor()
-            cur.execute("""
-                SELECT s.studLname || ', ' || s.studFname AS name,
-                       r.level, r.groupName,
-                       a.attStatus
-                FROM ATTENDANCE a
-                JOIN REGISTRATION_DETAIL d ON a.detailID = d.detailID
-                JOIN REGISTRATION r ON d.registrationID = r.registrationID
-                JOIN STUDENT s ON r.studentID = s.studentID
-                WHERE a.attDate = date('now')
-                ORDER BY
-                    CAST(REPLACE(r.level, 'Grade ', '') AS INTEGER),
-                    r.groupName,
-                    s.studLname, s.studFname
-                LIMIT 25
-            """)
+            if is_tutor and self.user_id:
+                # Show all students in tutor's batches; LEFT JOIN so they appear even without attendance
+                cur.execute("""
+                    SELECT s.studLname || ', ' || s.studFname AS name,
+                           r.level,
+                           sub.subjectName || ' (' || b.batchLabel || ')' AS groupName,
+                           COALESCE(a.attStatus, 'Not Recorded') AS attStatus
+                    FROM REGISTRATION_DETAIL d
+                    JOIN BATCH b ON d.batchID = b.batchID
+                    JOIN REGISTRATION r ON d.registrationID = r.registrationID
+                    JOIN STUDENT s ON r.studentID = s.studentID
+                    JOIN SUBJECT sub ON d.subjectID = sub.subjectID
+                    LEFT JOIN ATTENDANCE a ON a.detailID = d.detailID AND a.attDate = date('now')
+                    WHERE b.tutorID = ? AND d.enrollStatus = 'Active'
+                    ORDER BY
+                        CAST(REPLACE(r.level, 'Grade ', '') AS INTEGER),
+                        sub.subjectName, b.batchLabel,
+                        s.studLname, s.studFname
+                    LIMIT 50
+                """, (self.user_id,))
+            else:
+                cur.execute("""
+                    SELECT s.studLname || ', ' || s.studFname AS name,
+                           r.level, r.groupName,
+                           a.attStatus
+                    FROM ATTENDANCE a
+                    JOIN REGISTRATION_DETAIL d ON a.detailID = d.detailID
+                    JOIN REGISTRATION r ON d.registrationID = r.registrationID
+                    JOIN STUDENT s ON r.studentID = s.studentID
+                    WHERE a.attDate = date('now')
+                    ORDER BY
+                        CAST(REPLACE(r.level, 'Grade ', '') AS INTEGER),
+                        r.groupName,
+                        s.studLname, s.studFname
+                    LIMIT 25
+                """)
             att_rows = cur.fetchall()
             conn.close()
         except Exception:
             att_rows = []
 
-        cols = ("#", "Student Name", "Level", "Group Name", "Status")
+        cols = ("#", "Student Name", "Level", "Group Name", "Attendance")
         tree = ttk.Treeview(att_inner, columns=cols, show="headings",
-                            height=11, style="Dash.Treeview")
+                            height=4, style="Dash.Treeview")
 
         col_cfg = {
             "#":           (50,  "center", False),
             "Student Name":(220, "w",      True),
             "Level":       (120, "center", False),
             "Group Name":  (150, "center", False),
-            "Status":      (130, "center", False),
+            "Attendance":  (130, "center", False),
         }
         for col, (w, anch, stretch) in col_cfg.items():
             tree.heading(col, text=col, anchor=anch)
@@ -420,6 +470,7 @@ class Dashboard(ctk.CTkFrame):
             ("present", "#059669", "#f0fdf4"),
             ("absent",  "#dc2626", "#fff5f5"),
             ("late",    "#2563eb", "#eff6ff"),
+            ("pending", "#94a3b8", "#f8fafc"),
         ]:
             tree.tag_configure(f"{status}_even", foreground=fg_color, background=bg_even)
             tree.tag_configure(f"{status}_odd",  foreground=fg_color, background="#ffffff")
@@ -427,11 +478,13 @@ class Dashboard(ctk.CTkFrame):
         if att_rows:
             for idx, r in enumerate(att_rows):
                 parity = "even" if idx % 2 == 0 else "odd"
-                tag = f"{r['attStatus'].lower()}_{parity}"
+                status = r['attStatus'] if r['attStatus'] else 'Not Recorded'
+                status_key = status.lower() if status.lower() in ('present', 'absent', 'late') else 'pending'
+                tag = f"{status_key}_{parity}"
                 tree.insert("", "end",
                             values=(idx + 1, r["name"],
                                     r["level"], r["groupName"],
-                                    r["attStatus"]),
+                                    status),
                             tags=(tag,))
         else:
             tree.insert("", "end",

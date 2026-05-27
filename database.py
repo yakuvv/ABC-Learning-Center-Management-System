@@ -57,6 +57,21 @@ def _ensure_attendance_time_column(conn):
         conn.execute("ALTER TABLE ATTENDANCE ADD COLUMN attTime TEXT")
 
 
+def _ensure_grade_columns(conn):
+    """Add letterGrade and gradeDesc to GRADE if they don't exist yet."""
+    table = conn.execute(
+        "SELECT 1 FROM sqlite_master WHERE type='table' AND name='GRADE'"
+    ).fetchone()
+    if not table:
+        return
+    cols = [row[1] for row in conn.execute("PRAGMA table_info(GRADE)")]
+    if "letterGrade" not in cols:
+        conn.execute("ALTER TABLE GRADE ADD COLUMN letterGrade TEXT")
+    if "gradeDesc" not in cols:
+        conn.execute("ALTER TABLE GRADE ADD COLUMN gradeDesc TEXT")
+    conn.commit()
+
+
 def _ensure_pricing_columns(conn):
     """Add pricePerTerm / feeAmount and backfill from grade-level pricing."""
     if not conn.execute(
@@ -67,6 +82,11 @@ def _ensure_pricing_columns(conn):
     if "pricePerTerm" not in subject_cols:
         conn.execute("ALTER TABLE SUBJECT ADD COLUMN pricePerTerm REAL")
 
+    # Guard: REGISTRATION_DETAIL may not exist yet on a fresh install
+    if not conn.execute(
+        "SELECT 1 FROM sqlite_master WHERE type='table' AND name='REGISTRATION_DETAIL'"
+    ).fetchone():
+        return
     detail_cols = [row[1] for row in conn.execute("PRAGMA table_info(REGISTRATION_DETAIL)")]
     if "feeAmount" not in detail_cols:
         conn.execute("ALTER TABLE REGISTRATION_DETAIL ADD COLUMN feeAmount REAL")
@@ -115,6 +135,7 @@ def get_connection():
     _ensure_attendance_time_column(conn)
     _ensure_pricing_columns(conn)
     _ensure_payment_time_column(conn)
+    _ensure_grade_columns(conn)
     return conn
 
 
@@ -289,8 +310,10 @@ def init_database():
         gradeID INTEGER PRIMARY KEY AUTOINCREMENT,
         detailID INTEGER NOT NULL,
         tutorID INTEGER NOT NULL,
-        period TEXT NOT NULL,
+        period TEXT NOT NULL DEFAULT 'Overall',
         gradeValue REAL NOT NULL,
+        letterGrade TEXT,
+        gradeDesc TEXT,
         dateRecorded DATE DEFAULT CURRENT_DATE,
         FOREIGN KEY (detailID) REFERENCES REGISTRATION_DETAIL(detailID) ON DELETE CASCADE,
         FOREIGN KEY (tutorID) REFERENCES TUTOR(tutorID),
