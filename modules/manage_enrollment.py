@@ -7,6 +7,83 @@ from utils.modern_entry import ModernEntry
 from utils.modern_combo import ModernCombo
 from utils.term_options import apply_term_combo_for_level
 
+class SuccessPopup(ctk.CTkToplevel):
+    def __init__(self, parent, title, message, details=None):
+        super().__init__(parent)
+        self.title("Success")
+        self.geometry("400x240")
+        self.resizable(False, False)
+        self.configure(fg_color="#15165e")
+        self.transient(parent)
+        
+        self.lift()
+        self.attributes("-topmost", True)
+        try:
+            self.grab_set()
+        except Exception:
+            pass
+
+        main_frame = ctk.CTkFrame(self, fg_color="#15165e", corner_radius=0)
+        main_frame.pack(fill="both", expand=True, padx=20, pady=20)
+
+        icon_label = ctk.CTkLabel(
+            main_frame,
+            text="✓",
+            font=ctk.CTkFont(family="Inter", size=48, weight="bold"),
+            text_color="#00bf63"
+        )
+        icon_label.pack(pady=(5, 5))
+
+        msg_label = ctk.CTkLabel(
+            main_frame,
+            text=title,
+            font=ctk.CTkFont(family="Inter", size=20, weight="bold"),
+            text_color="#ffffff"
+        )
+        msg_label.pack(pady=(5, 5))
+
+        if details:
+            details_text = f"{message}\n{details}"
+        else:
+            details_text = message
+            
+        details_label = ctk.CTkLabel(
+            main_frame,
+            text=details_text,
+            font=ctk.CTkFont(family="Inter", size=13),
+            text_color="#cbd5e1",
+            wraplength=340
+        )
+        details_label.pack(pady=(0, 15))
+
+        btn = ctk.CTkButton(
+            main_frame,
+            text="OK",
+            font=ctk.CTkFont(family="Inter", size=13, weight="bold"),
+            width=120,
+            height=35,
+            fg_color="#122aff",
+            hover_color="#0b1eb3",
+            text_color="#ffffff",
+            corner_radius=8,
+            command=self.destroy
+        )
+        btn.pack()
+
+        # Center relative to parent
+        self.update_idletasks()
+        try:
+            parent_x = parent.winfo_rootx()
+            parent_y = parent.winfo_rooty()
+            parent_w = parent.winfo_width()
+            parent_h = parent.winfo_height()
+            x = parent_x + (parent_w - 400) // 2
+            y = parent_y + (parent_h - 240) // 2
+            self.geometry(f"+{x}+{y}")
+        except Exception:
+            pass
+
+
 class ManageEnrollment(ctk.CTkFrame):
     # Right-panel scroll areas
     H_CONFIRM = 160
@@ -244,10 +321,6 @@ class ManageEnrollment(ctk.CTkFrame):
                 except Exception:
                     pass
 
-        if first_available:
-            bid, tile = first_available
-            self._select_batch_tile(subject_id, bid, tile, peer_tiles)
-
         return peer_tiles
 
     def render_new_enrollment_form(self):
@@ -307,7 +380,6 @@ class ManageEnrollment(ctk.CTkFrame):
 
         self._section_header(
             left_frame, "Enrollment details",
-            "Grade level and term (Term 1 or Term 2).",
         )
 
         det_card, det_inner = self._card(left_frame, accent_color="#24894c")
@@ -490,8 +562,8 @@ class ManageEnrollment(ctk.CTkFrame):
             "Review student, level, and term before choosing subjects.",
         )
 
-        self.confirm_card, self.confirm_inner = self._card(self.right_frame, height=self.H_CONFIRM)
-        self.confirm_card.pack(fill="both", expand=True)
+        self.confirm_card, self.confirm_inner = self._card(self.right_frame)
+        self.confirm_card.pack(fill="x")
 
         level = self.level_combo.get()
         term = self.term_combo.get()
@@ -526,8 +598,8 @@ class ManageEnrollment(ctk.CTkFrame):
                       command=self.confirm_details).pack(anchor="w", pady=(10, 0))
 
     def confirm_details(self):
-        # Automatically load the Select Subjects card in the right frame!
-        self.show_select_subjects_view()
+        # Directly load the Select Subject and Batch view!
+        self.show_select_batches_view()
 
     def show_select_subjects_view(self):
         for w in self.right_frame.winfo_children():
@@ -586,26 +658,10 @@ class ManageEnrollment(ctk.CTkFrame):
         title_col = ctk.CTkFrame(header_row, fg_color="transparent")
         title_col.pack(side="left", fill="x", expand=True)
         ctk.CTkLabel(
-            title_col, text="Select batches",
+            title_col, text="SELECT SUBJECT and BATCH",
             font=ctk.CTkFont(family="Inter", size=15, weight="bold"),
             text_color="#1e293b",
         ).pack(anchor="w")
-        ctk.CTkLabel(
-            title_col,
-            text="Check only subjects the student will take, then pick Batch A or B.",
-            font=ctk.CTkFont(family="Inter", size=11),
-            text_color="#64748b",
-        ).pack(anchor="w")
-
-        preselected = set()
-        if getattr(self, "subject_vars", None):
-            preselected = {sid for sid, v in self.subject_vars.items() if v.get()}
-
-        self._info_banner(
-            self.right_frame,
-            "First-come, first-served: each batch holds up to 15 students per term. "
-            "Green badge = slots still available.",
-        )
 
         card, inner = self._card(self.right_frame, scrollable=True, accent_color="#122aff")
         card.pack(fill="both", expand=True)
@@ -634,8 +690,11 @@ class ManageEnrollment(ctk.CTkFrame):
                 conn.close()
                 return
 
+            # Fetch all subjects to preselect them all by default
+            preselected = {subj["subjectID"] for subj in all_subjects}
+
             self.batch_select_all_var = ctk.BooleanVar(
-                value=len(preselected) == len(all_subjects) and bool(all_subjects),
+                value=True,
             )
             ctk.CTkCheckBox(
                 header_row, text="Select all subjects",
@@ -644,17 +703,6 @@ class ManageEnrollment(ctk.CTkFrame):
                 fg_color="#122aff", hover_color="#0b1eb3",
                 command=self.toggle_select_all_batch_subjects,
             ).pack(side="right", padx=4)
-
-            term_price = price_for_level(level)
-            price_hint = (
-                f"₱{term_price:,.0f} per subject per term "
-                f"({level} · 2-hour sessions)"
-            )
-            ctk.CTkLabel(
-                header_row, text=price_hint,
-                font=ctk.CTkFont(family="Inter", size=11),
-                text_color="#64748b",
-            ).pack(side="left", padx=(0, 8))
 
             for subj in all_subjects:
                 subject_id = subj["subjectID"]
@@ -688,7 +736,7 @@ class ManageEnrollment(ctk.CTkFrame):
                     text_color="#15165e",
                 ).pack(anchor="w")
                 ctk.CTkLabel(
-                    title_col, text=f"₱{subj_price:,.0f} / term",
+                    title_col, text=f"₱{subj_price:,.2f} / Term",
                     font=ctk.CTkFont(family="Inter", size=11),
                     text_color="#64748b",
                 ).pack(anchor="w")
@@ -954,7 +1002,7 @@ class ManageEnrollment(ctk.CTkFrame):
             conn.commit()
             conn.close()
 
-            messagebox.showinfo("Success", f"Registration saved successfully!\nLearner ID: {learner_id}")
+            SuccessPopup(self.winfo_toplevel(), "Registration Saved", "Registration saved successfully!", f"Learner ID: {learner_id}")
 
             self.search_entry.delete(0, 'end')
             self.show_no_student_selected()
@@ -1073,6 +1121,8 @@ class ManageEnrollment(ctk.CTkFrame):
         self.tree.grid(row=0, column=0, sticky="nsew")
         scrollbar.grid(row=0, column=1, sticky="ns")
 
+        self.tree.bind("<Double-1>", self._on_enrollment_double_click)
+
         self.load_all_enrollments()
         self.after_idle(self._fit_enrollment_tree_to_card)
 
@@ -1108,6 +1158,7 @@ class ManageEnrollment(ctk.CTkFrame):
             self.tree.insert(
                 "",
                 "end",
+                iid=str(row["studentID"]),
                 values=(
                     row["learnerID"] or "—",
                     full_name,
@@ -1125,7 +1176,7 @@ class ManageEnrollment(ctk.CTkFrame):
         """Shared SELECT for enrollment list with aggregated batch labels."""
         return f"""
             SELECT r.learnerID, r.level, r.term, r.regStatus,
-                   s.studFname, s.studLname, s.studMname,
+                   s.studentID, s.studFname, s.studLname, s.studMname,
                    st.staffFname, st.staffLname,
                    (
                      SELECT GROUP_CONCAT(DISTINCT b.batchLabel)
@@ -1191,6 +1242,141 @@ class ManageEnrollment(ctk.CTkFrame):
             self._insert_enrollment_rows(rows)
         except Exception as e:
             messagebox.showerror("Error", str(e))
+
+    def _on_enrollment_double_click(self, event):
+        item_id = self.tree.identify_row(event.y)
+        if not item_id:
+            return
+        try:
+            student_id = int(item_id)
+        except ValueError:
+            return
+        self.show_student_detail_popup(student_id)
+
+    def show_student_detail_popup(self, student_id):
+        try:
+            conn = database.get_connection()
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT studentID, studLname, studFname, studMname, gender, dob, address, studContactNo, studEmail, level
+                FROM STUDENT WHERE studentID = ?
+            """, (student_id,))
+            student = cursor.fetchone()
+            cursor.execute("""
+                SELECT r.learnerID FROM REGISTRATION r
+                WHERE r.studentID = ? AND r.regStatus = 'Active'
+                ORDER BY r.registrationID DESC LIMIT 1
+            """, (student_id,))
+            reg = cursor.fetchone()
+            cursor.execute("""
+                SELECT parName, parContactNo, parEmail, relationship
+                FROM PARENT WHERE studentID = ?
+            """, (student_id,))
+            parent = cursor.fetchone()
+            conn.close()
+        except Exception as e:
+            messagebox.showerror("Database Error", f"Failed to retrieve student details: {e}")
+            return
+
+        if not student:
+            messagebox.showerror("Error", "Student not found.")
+            return
+
+        learner_id = reg['learnerID'] if reg else "N/A"
+
+        popup = ctk.CTkToplevel(self)
+        popup.title(f"Student Profile - {student['studFname']} {student['studLname']}")
+        popup.geometry("680x530")
+        popup.resizable(False, False)
+        popup.configure(fg_color="#e4e4e4")
+        popup.transient(self.winfo_toplevel())
+        x = (popup.winfo_screenwidth() - 680) // 2
+        y = (popup.winfo_screenheight() - 530) // 2
+        popup.geometry(f"680x530+{x}+{y}")
+        try:
+            popup.grab_set()
+        except Exception:
+            pass
+
+        top_bar = ctk.CTkFrame(popup, height=60, fg_color="#15165e", corner_radius=0)
+        top_bar.pack(fill="x", side="top")
+        top_bar.pack_propagate(False)
+        ctk.CTkLabel(top_bar,
+                     text=f"STUDENT PROFILE: {student['studFname'].upper()} {student['studLname'].upper()}",
+                     font=ctk.CTkFont(family="Inter", size=16, weight="bold"),
+                     text_color="#ffffff").pack(side="left", padx=20, pady=15)
+
+        container = ctk.CTkFrame(popup, fg_color="transparent")
+        container.pack(fill="both", expand=True, padx=25, pady=15)
+
+        def create_card(parent_w, title):
+            card = ctk.CTkFrame(parent_w, fg_color="#ffffff", corner_radius=12,
+                                border_width=1, border_color="#cbd5e1")
+            card.pack(fill="x", pady=(0, 15))
+            acc = ctk.CTkFrame(card, width=5, fg_color="transparent")
+            acc.pack(side="left", fill="y", padx=(10, 0), pady=10)
+            ctk.CTkFrame(acc, width=5, fg_color="#15165e", corner_radius=2.5).pack(fill="both", expand=True)
+            inner = ctk.CTkFrame(card, fg_color="transparent")
+            inner.pack(fill="both", expand=True, padx=12, pady=10)
+            ctk.CTkLabel(inner, text=title,
+                         font=ctk.CTkFont(family="Inter", size=13, weight="bold"),
+                         text_color="#15165e").pack(anchor="w", pady=(0, 8))
+            return inner
+
+        def add_row(parent_w, grid_w, row_idx, label, val):
+            rf = ctk.CTkFrame(grid_w, fg_color="transparent")
+            rf.grid(row=row_idx // 2, column=row_idx % 2, sticky="ew", pady=3, padx=5)
+            ctk.CTkLabel(rf, text=f"{label}:",
+                         font=ctk.CTkFont(family="Inter", size=11, weight="bold"),
+                         text_color="#64748b", width=105, anchor="w").pack(side="left")
+            ctk.CTkLabel(rf, text=str(val),
+                         font=ctk.CTkFont(family="Inter", size=12),
+                         text_color="#0f172a", anchor="w").pack(side="left", fill="x", expand=True)
+
+        stud_inner = create_card(container, "STUDENT INFORMATION")
+        grid_s = ctk.CTkFrame(stud_inner, fg_color="transparent")
+        grid_s.pack(fill="x")
+        grid_s.columnconfigure(0, weight=1)
+        grid_s.columnconfigure(1, weight=1)
+        add_row(stud_inner, grid_s, 0, "Learner ID", learner_id)
+        add_row(stud_inner, grid_s, 1, "Full Name", f"{student['studLname']}, {student['studFname']} {student['studMname'] or ''}")
+        add_row(stud_inner, grid_s, 2, "Grade Level", student['level'] or "Unassigned")
+        add_row(stud_inner, grid_s, 3, "Gender", student['gender'])
+        add_row(stud_inner, grid_s, 4, "Date of Birth", student['dob'])
+        add_row(stud_inner, grid_s, 5, "Contact No", student['studContactNo'] or "\u2014")
+        add_row(stud_inner, grid_s, 6, "Email Address", student['studEmail'] or "\u2014")
+        addr_f = ctk.CTkFrame(stud_inner, fg_color="transparent")
+        addr_f.pack(fill="x", pady=(8, 0), padx=5)
+        ctk.CTkLabel(addr_f, text="Full Address:",
+                     font=ctk.CTkFont(family="Inter", size=11, weight="bold"),
+                     text_color="#64748b", width=105, anchor="w").pack(side="left")
+        ctk.CTkLabel(addr_f, text=student['address'] or "\u2014",
+                     font=ctk.CTkFont(family="Inter", size=12),
+                     text_color="#0f172a", anchor="w", wraplength=480).pack(side="left", fill="x", expand=True)
+
+        par_inner = create_card(container, "PARENT / GUARDIAN INFORMATION")
+        if parent:
+            grid_p = ctk.CTkFrame(par_inner, fg_color="transparent")
+            grid_p.pack(fill="x")
+            grid_p.columnconfigure(0, weight=1)
+            grid_p.columnconfigure(1, weight=1)
+            add_row(par_inner, grid_p, 0, "Parent Name", parent['parName'])
+            add_row(par_inner, grid_p, 1, "Relationship", parent['relationship'])
+            add_row(par_inner, grid_p, 2, "Contact No", parent['parContactNo'] or "\u2014")
+            add_row(par_inner, grid_p, 3, "Email Address", parent['parEmail'] or "\u2014")
+        else:
+            ctk.CTkLabel(par_inner,
+                         text="No parent/guardian information found.",
+                         font=ctk.CTkFont(family="Inter", size=12, slant="italic"),
+                         text_color="#ef4444").pack(anchor="w", pady=5)
+
+        btn_frame = ctk.CTkFrame(popup, fg_color="transparent")
+        btn_frame.pack(fill="x", pady=(5, 15))
+        ctk.CTkButton(btn_frame, text="CLOSE PROFILE",
+                      font=ctk.CTkFont(family="Inter", size=13, weight="bold"),
+                      fg_color="#374151", hover_color="#1f2937", text_color="#ffffff",
+                      width=160, height=38, corner_radius=8,
+                      command=popup.destroy).pack(anchor="center")
 
     def on_level_changed(self, choice):
         if not choice:
