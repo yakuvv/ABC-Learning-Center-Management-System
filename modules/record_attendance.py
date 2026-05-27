@@ -3,7 +3,7 @@ from tkinter import messagebox
 import database
 from datetime import datetime
 from utils.modern_combo import ModernCombo
-from utils.term_options import apply_term_combo_for_level, get_term_options
+from utils.term_options import apply_term_combo_for_level
 
 
 class AttendanceSavedPopup(ctk.CTkToplevel):
@@ -91,11 +91,17 @@ class RecordAttendance(ctk.CTkFrame):
         elif hasattr(parent, "welcome_lbl"):
             parent.welcome_lbl.pack_forget()
 
+        # Roster UI state keyed by detailID (string)
         self.student_row_widgets = {}
         self.student_row_frames = {}
         self.attendance_vars = {}
         self.attendance_times = {}
-        self.loaded_detail_ids = {}
+        self.roster_rows = []          # list[dict] for current roster
+        self._batch_display_to_row = {}  # display -> {batchID, level, subjectName, batchLabel, schedule}
+        self._selected_batch = None    # dict from _batch_display_to_row
+        self._h_batch_display_to_row = {}  # history batch mapping (display -> {batchID, ...})
+        self._last_record_filters = {}  # saved filters from Record tab (for History tab sync)
+        self._history_stats_frame = None
 
         self.create_ui()
 
@@ -183,7 +189,8 @@ class RecordAttendance(ctk.CTkFrame):
             self.record_tab_btn.configure(fg_color="transparent", text_color="#374151")
             self.history_tab_btn.configure(fg_color="#122aff", text_color="#ffffff")
             self.render_history_tab()
-
+            # Keep History dropdowns synchronized with Record dropdowns automatically.
+            self._sync_history_filters_from_record()
     def render_record_tab(self):
         for w in self.workspace_canvas.winfo_children():
             w.destroy()
@@ -212,29 +219,21 @@ class RecordAttendance(ctk.CTkFrame):
         self.class_combo = self._combo(class_inner, [f"Grade {i}" for i in range(1, 13)], command=self.on_class_changed)
         self.class_combo.pack(fill="x")
 
-        # GROUP NAME Dropdown
-        self.section_lbl = section_label(left_panel, "GROUP NAME", 2)
-        self.section_card, section_inner = self._card_frame(left_panel, height=50)
-        self.section_card.grid(row=3, column=0, sticky="ew")
-        self.section_card.pack_propagate(False)
-        self.section_combo = self._combo(section_inner, ["A", "B", "C", "D"], command=self.on_section_changed)
-        self.section_combo.pack(fill="x")
-
         # TERM Dropdown
-        self.term_label_widget = section_label(left_panel, "TERM", 4)
+        self.term_label_widget = section_label(left_panel, "TERM", 2)
         self.term_card, term_inner = self._card_frame(left_panel, height=50)
-        self.term_card.grid(row=5, column=0, sticky="ew")
+        self.term_card.grid(row=3, column=0, sticky="ew")
         self.term_card.pack_propagate(False)
         self.term_combo = self._combo(term_inner, [], command=self.on_term_changed)
         self.term_combo.pack(fill="x")
 
-        # SUBJECT Dropdown
-        self.sub_lbl = section_label(left_panel, "SUBJECT", 6)
-        self.sub_card, sub_inner = self._card_frame(left_panel, height=50)
-        self.sub_card.grid(row=7, column=0, sticky="ew")
-        self.sub_card.pack_propagate(False)
-        self.subject_combo = self._combo(sub_inner, [], command=self.on_subject_changed)
-        self.subject_combo.pack(fill="x")
+        # BATCH Dropdown (batch-first attendance)
+        self.batch_lbl = section_label(left_panel, "BATCH", 4)
+        self.batch_card, batch_inner = self._card_frame(left_panel, height=50)
+        self.batch_card.grid(row=5, column=0, sticky="ew")
+        self.batch_card.pack_propagate(False)
+        self.batch_combo = self._combo(batch_inner, [], command=self.on_batch_changed)
+        self.batch_combo.pack(fill="x")
 
         # OK button trigger
         self.ok_btn = ctk.CTkButton(left_panel, text="OK",
@@ -242,12 +241,12 @@ class RecordAttendance(ctk.CTkFrame):
                                     height=40, corner_radius=8,
                                     fg_color="#122aff", hover_color="#0b1eb3", text_color="#ffffff",
                                     command=self.on_ok_clicked)
-        self.ok_btn.grid(row=8, column=0, sticky="ew", pady=(15, 0))
+        self.ok_btn.grid(row=6, column=0, sticky="ew", pady=(15, 0))
 
         # CLASS DETAILS Card
-        self.details_lbl = section_label(left_panel, "CLASS DETAILS", 9)
+        self.details_lbl = section_label(left_panel, "CLASS DETAILS", 7)
         self.details_card, self.details_inner = self._card_frame(left_panel)
-        self.details_card.grid(row=10, column=0, sticky="nsew", pady=(0, 5))
+        self.details_card.grid(row=8, column=0, sticky="nsew", pady=(0, 5))
 
         details_frame = ctk.CTkFrame(self.details_inner, fg_color="transparent")
         details_frame.pack(fill="both", expand=True)
@@ -257,9 +256,10 @@ class RecordAttendance(ctk.CTkFrame):
         self.class_detail_labels = {}
         for i, (label, val) in enumerate([
             ("Level", "—"),
-            ("Group Name", "—"),
             ("Term", "—"),
             ("Subject", "—"),
+            ("Batch", "—"),
+            ("Schedule", "—"),
             ("Time", "—"),
         ]):
             ctk.CTkLabel(
@@ -277,7 +277,7 @@ class RecordAttendance(ctk.CTkFrame):
             self.class_detail_labels[label] = val_lbl
 
         left_panel.columnconfigure(0, weight=1)
-        left_panel.rowconfigure(10, weight=1)
+        left_panel.rowconfigure(8, weight=1)
 
         # ── RIGHT PANEL (ROSTER) ─────────────────────────────────────────────
         right_panel = ctk.CTkFrame(split_body, fg_color="transparent")
@@ -348,17 +348,12 @@ class RecordAttendance(ctk.CTkFrame):
 
         # Initialise fields to Empty and Readonly
         self.class_combo.set("")
-        self.section_combo.set("")
         self.term_combo.set("")
-        self.subject_combo.set("")
+        self.batch_combo.set("")
         
         self.update_combo_style(self.class_combo)
-        self.update_combo_style(self.section_combo)
         self.update_combo_style(self.term_combo)
-        self.update_combo_style(self.subject_combo)
-
-        self.class_combo.set("Grade 7")
-        self.on_class_changed("Grade 7")
+        self.update_combo_style(self.batch_combo)
 
         # Render clean initial empty states
         self.show_roster_placeholder()
@@ -377,88 +372,194 @@ class RecordAttendance(ctk.CTkFrame):
     def on_class_changed(self, choice):
         self.update_combo_style(self.class_combo)
         if not choice:
-            self.section_combo.configure(values=[])
-            self.section_combo.set("")
-            self.update_combo_style(self.section_combo)
+            self.term_combo.configure(values=[])
+            self.term_combo.set("")
+            self.batch_combo.configure(values=[])
+            self.batch_combo.set("")
+            self._batch_display_to_row = {}
+            self._selected_batch = None
+            self.update_combo_style(self.term_combo)
+            self.update_combo_style(self.batch_combo)
             return
 
-        if choice in ["Grade 11", "Grade 12"]:
-            self.section_combo.configure(values=["STEM-A", "ABM-A", "HUMSS-A"])
-            self.section_combo.set("STEM-A")
-        else:
-            self.section_combo.configure(values=["A", "B", "C", "D"])
-            self.section_combo.set("A")
-
         apply_term_combo_for_level(self.term_combo, choice)
-        self.update_combo_style(self.section_combo)
+        # Prevent auto-selecting Term 1; keep term empty until user chooses.
+        self.term_combo.set("")
+        self._batch_display_to_row = {}
+        self._selected_batch = None
+        self.batch_combo.configure(values=[])
+        self.batch_combo.set("")
         self.update_combo_style(self.term_combo)
-        self.load_subjects_for_class()
-
-    def on_section_changed(self, choice):
-        self.update_combo_style(self.section_combo)
-        self.load_subjects_for_class()
+        self.update_combo_style(self.batch_combo)
 
     def on_term_changed(self, choice):
         self.update_combo_style(self.term_combo)
-        self.load_subjects_for_class()
+        self.load_batches_for_filters()
 
-    def on_subject_changed(self, choice):
-        self.update_combo_style(self.subject_combo)
+    def on_batch_changed(self, choice):
+        self.update_combo_style(self.batch_combo)
+        self._selected_batch = self._batch_display_to_row.get(choice)
 
-    def _extract_program(self, group_name):
-        for prog in ("STEM", "ABM", "HUMSS"):
-            if prog in group_name:
-                return prog
-        return None
-
-    def load_subjects_for_class(self):
+    def load_batches_for_filters(self):
+        """Load batches for (level, term). Tutor accounts only see their own batches."""
         level = self.class_combo.get().strip()
-        group_name = self.section_combo.get().strip()
-        if not level or not group_name:
-            self.subject_combo.configure(values=[])
-            self.subject_combo.set("")
-            self.update_combo_style(self.subject_combo)
+        term = self.term_combo.get().strip()
+        self._batch_display_to_row = {}
+        self._selected_batch = None
+
+        if not level or not term:
+            self.batch_combo.configure(values=[])
+            self.batch_combo.set("")
+            self.update_combo_style(self.batch_combo)
             return
 
         try:
             conn = database.get_connection()
-            cursor = conn.cursor()
-            program = self._extract_program(group_name)
-            if program:
-                cursor.execute("""
-                    SELECT DISTINCT subjectName
-                    FROM SUBJECT
-                    WHERE level = ? AND program = ? AND isActive = 1
-                    ORDER BY subjectName
-                """, (level, program))
-            else:
-                cursor.execute("""
-                    SELECT DISTINCT subjectName
-                    FROM SUBJECT
-                    WHERE level = ? AND (program IS NULL OR program = '') AND isActive = 1
-                    ORDER BY subjectName
-                """, (level,))
-                
-            rows = cursor.fetchall()
-            conn.close()
-            
-            subject_names = [r['subjectName'] for r in rows]
-            self.subject_combo.configure(values=subject_names)
-            if subject_names:
-                self.subject_combo.set(subject_names[0])
-            else:
-                self.subject_combo.set("")
-            
-            self.update_combo_style(self.subject_combo)
-        except Exception:
-            pass
+            cur = conn.cursor()
+            params = [level]
+            tutor_filter = ""
+            if str(self.user_role).lower().startswith("tutor") and self.tutor_id:
+                tutor_filter = " AND (b.tutorID = ?)"
+                params.append(self.tutor_id)
 
-    def _set_class_details(self, level="—", group_name="—", term="—", subject="—", time="—"):
+            cur.execute(
+                f"""
+                SELECT b.batchID, b.batchLabel, b.schedule, b.level,
+                       s.subjectName
+                FROM BATCH b
+                JOIN SUBJECT s ON s.subjectID = b.subjectID
+                WHERE b.isActive = 1
+                  AND b.level = ?
+                  {tutor_filter}
+                ORDER BY s.subjectName, b.batchLabel
+                """,
+                tuple(params),
+            )
+            rows = cur.fetchall()
+            conn.close()
+
+            values = []
+            for r in rows:
+                disp = f"{r['subjectName']} — Batch {r['batchLabel']} — {r['schedule']}"
+                values.append(disp)
+                self._batch_display_to_row[disp] = {
+                    "batchID": r["batchID"],
+                    "batchLabel": r["batchLabel"],
+                    "schedule": r["schedule"],
+                    "level": r["level"],
+                    "subjectName": r["subjectName"],
+                    "term": term,
+                }
+
+            self.batch_combo.configure(values=values)
+            # Keep dropdown empty until user clicks/selects one.
+            self.batch_combo.set("")
+            self._selected_batch = None
+            self.update_combo_style(self.batch_combo)
+        except Exception:
+            # keep UI responsive; any errors will surface on OK when loading roster
+            self.batch_combo.configure(values=[])
+            self.batch_combo.set("")
+            self.update_combo_style(self.batch_combo)
+
+    def _load_history_batches(self, level: str, term: str):
+        """Populate Attendance History batch dropdown for (level, term)."""
+        self._h_batch_display_to_row = {}
+        self.h_batch.configure(values=[])
+        self.h_batch.set("")
+        self.update_combo_style(self.h_batch)
+
+        if not level or not term:
+            return
+
+        try:
+            conn = database.get_connection()
+            cur = conn.cursor()
+            params = [level]
+            tutor_filter = ""
+            if str(self.user_role).lower().startswith("tutor") and self.tutor_id:
+                tutor_filter = " AND (b.tutorID = ?)"
+                params.append(self.tutor_id)
+
+            cur.execute(
+                f"""
+                SELECT b.batchID, b.batchLabel, b.schedule, s.subjectName
+                FROM BATCH b
+                JOIN SUBJECT s ON s.subjectID = b.subjectID
+                WHERE b.isActive = 1
+                  AND b.level = ?
+                  {tutor_filter}
+                ORDER BY s.subjectName, b.batchLabel
+                """,
+                tuple(params),
+            )
+            rows = [dict(r) for r in cur.fetchall()]
+            conn.close()
+
+            values = []
+            for r in rows:
+                disp = f"{r['subjectName']} — Batch {r['batchLabel']} — {r['schedule']}"
+                values.append(disp)
+                self._h_batch_display_to_row[disp] = {
+                    "batchID": r["batchID"],
+                    "batchLabel": r["batchLabel"],
+                    "schedule": r["schedule"],
+                    "subjectName": r["subjectName"],
+                    "level": level,
+                    "term": term,
+                }
+
+            self.h_batch.configure(values=values)
+            # Keep dropdown empty until either user selects or Record tab syncs it.
+            self.h_batch.set("")
+            self.update_combo_style(self.h_batch)
+        except Exception:
+            self._h_batch_display_to_row = {}
+            self.h_batch.configure(values=[])
+            self.h_batch.set("")
+            self.update_combo_style(self.h_batch)
+
+    def _sync_history_filters_from_record(self):
+        """Apply Record Attendance selections to Attendance History automatically."""
+        if not self._last_record_filters:
+            return
+        if not hasattr(self, "h_class") or not hasattr(self, "h_term") or not hasattr(self, "h_batch"):
+            return
+        if not self._history_stats_frame:
+            return
+
+        level = self._last_record_filters.get("level")
+        term = self._last_record_filters.get("term")
+        batch_display = self._last_record_filters.get("batch_display")
+
+        if not (level and term and batch_display):
+            return
+
+        # Ensure dropdown options exist.
+        self.h_class.set(level)
+        apply_term_combo_for_level(self.h_term, level)
+        self.h_term.set(term)
+        self.update_combo_style(self.h_class)
+        self.update_combo_style(self.h_term)
+
+        # Populate history batch dropdown options and select the same one used in Record tab.
+        self._load_history_batches(level, term)
+        if batch_display in self._h_batch_display_to_row:
+            self.h_batch.set(batch_display)
+        else:
+            self.h_batch.set("")
+        self.update_combo_style(self.h_batch)
+
+        # Auto-load history results so user doesn't need to search again.
+        self.load_history(level, term, batch_display, self._history_stats_frame, self.hist_tree)
+
+    def _set_class_details(self, level="—", term="—", subject="—", batch="—", schedule="—", time="—"):
         mapping = {
             "Level": level,
-            "Group Name": group_name,
             "Term": term,
             "Subject": subject,
+            "Batch": batch,
+            "Schedule": schedule,
             "Time": time,
         }
         for key, val in mapping.items():
@@ -475,7 +576,7 @@ class RecordAttendance(ctk.CTkFrame):
 
         lbl = ctk.CTkLabel(
             self.roster_rows_frame,
-            text="Please select Level, Group Name, Term, and Subject,\n"
+            text="Please select Level, Term, and Batch,\n"
                  "then click OK to retrieve the active class roster.",
             font=ctk.CTkFont(family="Inter", size=13, weight="bold"),
             text_color="#64748b",
@@ -485,27 +586,45 @@ class RecordAttendance(ctk.CTkFrame):
 
     def on_ok_clicked(self):
         level = self.class_combo.get().strip()
-        group_name = self.section_combo.get().strip()
         term = self.term_combo.get().strip()
-        sub = self.subject_combo.get().strip()
+        batch_disp = self.batch_combo.get().strip()
 
-        if not level or not group_name or not term or not sub:
+        if not level or not term or not batch_disp:
             messagebox.showwarning("Warning", "Please complete all filters first!")
+            return
+        batch_row = self._batch_display_to_row.get(batch_disp)
+        if not batch_row:
+            messagebox.showwarning("Warning", "Please choose a valid batch.")
             return
 
         mil_time = datetime.now().strftime("%H:%M")
         self._set_class_details(
-            level=level, group_name=group_name, term=term, subject=sub, time=mil_time,
+            level=level,
+            term=term,
+            subject=batch_row.get("subjectName"),
+            batch=f"Batch {batch_row.get('batchLabel')}",
+            schedule=batch_row.get("schedule"),
+            time=mil_time,
         )
+        self._selected_batch = batch_row
+        # Persist the selected filters so the History tab can sync automatically.
+        self._last_record_filters = {
+            "level": level,
+            "term": term,
+            "batch_display": batch_disp,
+            "batchID": batch_row.get("batchID"),
+        }
         self.load_students()
 
     def load_students(self):
         level = self.class_combo.get().strip()
-        group_name = self.section_combo.get().strip()
         term = self.term_combo.get().strip()
-        sub = self.subject_combo.get().strip()
+        batch_row = self._selected_batch
 
-        if not level or not group_name or not term or not sub:
+        if not level or not term or not batch_row:
+            return
+        batch_id = batch_row.get("batchID")
+        if not batch_id:
             return
 
         try:
@@ -513,18 +632,23 @@ class RecordAttendance(ctk.CTkFrame):
             cursor = conn.cursor()
 
             cursor.execute("""
-                SELECT DISTINCT s.studentID, s.studLname, s.studFname, s.studMname, d.detailID
-                FROM STUDENT s
-                JOIN REGISTRATION r ON s.studentID = r.studentID
-                JOIN REGISTRATION_DETAIL d ON r.registrationID = d.registrationID
-                JOIN SUBJECT sub ON d.subjectID = sub.subjectID
-                WHERE r.level = ?
-                  AND r.groupName = ?
+                SELECT DISTINCT
+                    d.detailID,
+                    r.learnerID,
+                    s.studentID,
+                    s.studLname,
+                    s.studFname,
+                    s.studMname
+                FROM REGISTRATION_DETAIL d
+                JOIN REGISTRATION r ON r.registrationID = d.registrationID
+                JOIN STUDENT s ON s.studentID = r.studentID
+                WHERE r.regStatus = 'Active'
+                  AND d.enrollStatus = 'Active'
+                  AND r.level = ?
                   AND r.term = ?
-                  AND sub.subjectName = ?
-                  AND r.regStatus = 'Active'
+                  AND d.batchID = ?
                 ORDER BY s.studLname, s.studFname
-            """, (level, group_name, term, sub))
+            """, (level, term, batch_id))
             
             rows = cursor.fetchall()
             conn.close()
@@ -546,37 +670,13 @@ class RecordAttendance(ctk.CTkFrame):
                 lbl.pack(pady=60)
                 return
 
-            names = []
-            detail_ids = {}
-            for r in rows:
-                m = f" {r['studMname'][0]}." if r['studMname'] else ""
-                full_name = f"{r['studLname']}, {r['studFname']}{m}"
-                names.append(full_name)
-                detail_ids[full_name] = r['detailID']
-                
-            self.loaded_detail_ids = detail_ids
-            self.render_roster(names)
+            self.roster_rows = [dict(r) for r in rows]
+            self.render_roster(self.roster_rows)
 
         except Exception as e:
             messagebox.showerror("Error", f"Failed to load students:\n{e}")
 
-    def _parse_name(self, name_str):
-        parts = name_str.split(",", 1)
-        last_name = parts[0].strip()
-        rest = parts[1].strip() if len(parts) > 1 else ""
-        
-        first_name = rest
-        middle_name = ""
-        
-        if rest:
-            rest_parts = rest.rsplit(" ", 1)
-            if len(rest_parts) > 1 and (rest_parts[1].endswith(".") or len(rest_parts[1]) <= 2):
-                first_name = rest_parts[0].strip()
-                middle_name = rest_parts[1].strip()
-                
-        return last_name, first_name, middle_name
-
-    def render_roster(self, student_list):
+    def render_roster(self, roster_rows):
         for w in self.roster_rows_frame.winfo_children():
             w.destroy()
         self.attendance_vars.clear()
@@ -584,8 +684,12 @@ class RecordAttendance(ctk.CTkFrame):
         self.student_row_widgets.clear()
         self.student_row_frames.clear()
 
-        for idx, name in enumerate(student_list):
-            last_name, first_name, middle_name = self._parse_name(name)
+        for idx, row in enumerate(roster_rows):
+            detail_key = str(row["detailID"])
+            last_name = row.get("studLname") or ""
+            first_name = row.get("studFname") or ""
+            middle_raw = row.get("studMname")
+            middle_name = f"{middle_raw[0]}." if middle_raw else ""
 
             row_bg = "#f8fafc" if idx % 2 == 0 else "#ffffff"
             row_frame = ctk.CTkFrame(self.roster_rows_frame, fg_color=row_bg,
@@ -594,7 +698,7 @@ class RecordAttendance(ctk.CTkFrame):
             row_frame.pack(fill="x", pady=4, padx=5)
             row_frame.pack_propagate(False)
 
-            self.student_row_frames[name] = row_frame
+            self.student_row_frames[detail_key] = row_frame
 
             row_frame.grid_columnconfigure(0, minsize=35)
             row_frame.grid_columnconfigure(1, minsize=35)
@@ -614,7 +718,7 @@ class RecordAttendance(ctk.CTkFrame):
             p_var = ctk.BooleanVar(value=False)
             a_var = ctk.BooleanVar(value=False)
             l_var = ctk.BooleanVar(value=False)
-            self.attendance_vars[name] = (p_var, a_var, l_var)
+            self.attendance_vars[detail_key] = (p_var, a_var, l_var)
 
             chk_cfg = dict(text="", width=22, height=22, corner_radius=11,
                            border_width=2, border_color="#cbd5e1",
@@ -624,9 +728,9 @@ class RecordAttendance(ctk.CTkFrame):
             a_chk = ctk.CTkCheckBox(row_frame, variable=a_var, fg_color="#e20000", hover_color="#9e0000", **chk_cfg)
             l_chk = ctk.CTkCheckBox(row_frame, variable=l_var, fg_color="#122aff", hover_color="#0a1bb3", **chk_cfg)
 
-            p_chk.configure(command=lambda n=name, p=p_var, a=a_var, l=l_var: self._mutual(n, p, a, l, "P"))
-            a_chk.configure(command=lambda n=name, p=p_var, a=a_var, l=l_var: self._mutual(n, p, a, l, "A"))
-            l_chk.configure(command=lambda n=name, p=p_var, a=a_var, l=l_var: self._mutual(n, p, a, l, "L"))
+            p_chk.configure(command=lambda k=detail_key, p=p_var, a=a_var, l=l_var: self._mutual(k, p, a, l, "P"))
+            a_chk.configure(command=lambda k=detail_key, p=p_var, a=a_var, l=l_var: self._mutual(k, p, a, l, "A"))
+            l_chk.configure(command=lambda k=detail_key, p=p_var, a=a_var, l=l_var: self._mutual(k, p, a, l, "L"))
 
             p_chk.grid(row=0, column=1, padx=2, pady=10)
             a_chk.grid(row=0, column=2, padx=2, pady=10)
@@ -657,9 +761,9 @@ class RecordAttendance(ctk.CTkFrame):
                                     text_color="#64748b")
             time_lbl.grid(row=0, column=8, padx=10, pady=10)
 
-            self.student_row_widgets[name] = (status_box, status_lbl, time_lbl)
+            self.student_row_widgets[detail_key] = (status_box, status_lbl, time_lbl)
 
-    def _mutual(self, name, p_var, a_var, l_var, selected):
+    def _mutual(self, detail_key, p_var, a_var, l_var, selected):
         if selected == "P" and p_var.get():
             a_var.set(False)
             l_var.set(False)
@@ -670,8 +774,8 @@ class RecordAttendance(ctk.CTkFrame):
             p_var.set(False)
             a_var.set(False)
 
-        status_box, status_lbl, time_lbl = self.student_row_widgets[name]
-        row_frame = self.student_row_frames.get(name)
+        status_box, status_lbl, time_lbl = self.student_row_widgets[detail_key]
+        row_frame = self.student_row_frames.get(detail_key)
         
         # Interactive live border coloring and Status pill formatting!
         click_time = datetime.now().strftime("%I:%M %p")
@@ -679,39 +783,40 @@ class RecordAttendance(ctk.CTkFrame):
             status_box.configure(fg_color="#00bf63")
             status_lbl.configure(text="PRESENT", text_color="white")
             time_lbl.configure(text=click_time, text_color="#0f172a")
-            self.attendance_times[name] = click_time
+            self.attendance_times[detail_key] = click_time
             if row_frame:
                 row_frame.configure(border_color="#00bf63", border_width=2)
         elif a_var.get():
             status_box.configure(fg_color="#e20000")
             status_lbl.configure(text="ABSENT", text_color="white")
             time_lbl.configure(text=click_time, text_color="#0f172a")
-            self.attendance_times[name] = click_time
+            self.attendance_times[detail_key] = click_time
             if row_frame:
                 row_frame.configure(border_color="#e20000", border_width=2)
         elif l_var.get():
             status_box.configure(fg_color="#122aff")
             status_lbl.configure(text="LATE", text_color="white")
             time_lbl.configure(text=click_time, text_color="#0f172a")
-            self.attendance_times[name] = click_time
+            self.attendance_times[detail_key] = click_time
             if row_frame:
                 row_frame.configure(border_color="#122aff", border_width=2)
         else:
             status_box.configure(fg_color="#f1f5f9")
             status_lbl.configure(text="", text_color="#64748b")
             time_lbl.configure(text="—", text_color="#64748b")
-            self.attendance_times.pop(name, None)
+            self.attendance_times.pop(detail_key, None)
             if row_frame:
                 row_frame.configure(border_color="#cbd5e1", border_width=1)
 
     def save_attendance(self):
         att_date = datetime.now().strftime("%Y-%m-%d")
+        att_time_now = datetime.now().strftime("%I:%M %p")
 
         if not self.attendance_vars:
             messagebox.showwarning("Warning", "No students loaded.")
             return
 
-        unmarked = [n for n, (p, a, l) in self.attendance_vars.items()
+        unmarked = [k for k, (p, a, l) in self.attendance_vars.items()
                     if not p.get() and not a.get() and not l.get()]
         if len(unmarked) == len(self.attendance_vars):
             messagebox.showwarning("Nothing Marked",
@@ -724,7 +829,7 @@ class RecordAttendance(ctk.CTkFrame):
         skipped = []
 
         try:
-            for name, (p_var, a_var, l_var) in self.attendance_vars.items():
+            for detail_key, (p_var, a_var, l_var) in self.attendance_vars.items():
                 if p_var.get():
                     status = "Present"
                 elif a_var.get():
@@ -732,52 +837,19 @@ class RecordAttendance(ctk.CTkFrame):
                 elif l_var.get():
                     status = "Late"
                 else:
-                    skipped.append(name)
+                    skipped.append(detail_key)
                     continue
 
-                # Query detailID directly from cached mappings, or query database if not found
-                detail_id = getattr(self, "loaded_detail_ids", {}).get(name)
-                if not detail_id:
-                    parts = name.split(", ", 1)
-                    lname = parts[0].strip() if len(parts) > 0 else ""
-                    fname = parts[1].split(" ")[0].strip() if len(parts) > 1 else ""
+                detail_id = int(detail_key)
 
-                    cursor.execute("""
-                        SELECT d.detailID
-                        FROM REGISTRATION_DETAIL d
-                        JOIN REGISTRATION r ON d.registrationID = r.registrationID
-                        JOIN STUDENT s ON r.studentID = s.studentID
-                        JOIN SUBJECT sub ON d.subjectID = sub.subjectID
-                        WHERE s.studLname LIKE ?
-                          AND s.studFname LIKE ?
-                          AND r.term = ?
-                          AND r.level = ?
-                          AND r.groupName = ?
-                          AND sub.subjectName LIKE ?
-                        LIMIT 1
-                    """, (
-                        f"%{lname}%",
-                        f"%{fname}%",
-                        self.term_combo.get(),
-                        self.class_combo.get(),
-                        self.section_combo.get(),
-                        f"%{self.subject_combo.get()}%"
-                    ))
-                    detail_row = cursor.fetchone()
-                    detail_id = detail_row['detailID'] if detail_row else None
-
-                if not detail_id:
-                    skipped.append(name)
-                    continue
-
-                att_time = self.attendance_times.get(name)
-                if not att_time and name in self.student_row_widgets:
-                    _, _, time_lbl = self.student_row_widgets[name]
+                att_time = self.attendance_times.get(detail_key)
+                if not att_time and detail_key in self.student_row_widgets:
+                    _, _, time_lbl = self.student_row_widgets[detail_key]
                     label_time = time_lbl.cget("text")
                     if label_time and label_time != "—":
                         att_time = label_time
                 if not att_time:
-                    att_time = datetime.now().strftime("%I:%M %p")
+                    att_time = att_time_now
 
                 # Insert or update attendance status
                 cursor.execute("""
@@ -845,38 +917,21 @@ class RecordAttendance(ctk.CTkFrame):
         self.h_class = self._combo(h_class_inner, [f"Grade {i}" for i in range(1, 13)])
         self.h_class.pack(fill="x")
 
-        # GROUP NAME
-        section_label(left_panel, "GROUP NAME", 2)
-        h_sec_card, h_sec_inner = self._card_frame(left_panel, height=50)
-        h_sec_card.grid(row=3, column=0, sticky="ew")
-        h_sec_card.pack_propagate(False)
-        self.h_section = self._combo(h_sec_inner, ["A","B","C","D"])
-        self.h_section.pack(fill="x")
-
         # TERM
-        section_label(left_panel, "TERM", 4)
+        section_label(left_panel, "TERM", 2)
         h_term_card, h_term_inner = self._card_frame(left_panel, height=50)
-        h_term_card.grid(row=5, column=0, sticky="ew")
+        h_term_card.grid(row=3, column=0, sticky="ew")
         h_term_card.pack_propagate(False)
         self.h_term = self._combo(h_term_inner, [])
         self.h_term.pack(fill="x")
 
-        # PERIOD filter
-        self.h_period_lbl = section_label(left_panel, "PERIOD", 6)
-        h_per_card, h_per_inner = self._card_frame(left_panel, height=50)
-        h_per_card.grid(row=7, column=0, sticky="ew")
-        h_per_card.pack_propagate(False)
-        self.h_period = self._combo(h_per_inner, ["All Periods","1st Period","2nd Period","3rd Period","4th Period"])
-        self.h_period.set("All Periods")
-        self.h_period.pack(fill="x")
-
-        # SUBJECT
-        section_label(left_panel, "SUBJECT", 8)
-        h_sub_card, h_sub_inner = self._card_frame(left_panel, height=50)
-        h_sub_card.grid(row=9, column=0, sticky="ew")
-        h_sub_card.pack_propagate(False)
-        self.h_subject = self._combo(h_sub_inner, [])
-        self.h_subject.pack(fill="x")
+        # BATCH
+        section_label(left_panel, "BATCH", 4)
+        h_batch_card, h_batch_inner = self._card_frame(left_panel, height=50)
+        h_batch_card.grid(row=5, column=0, sticky="ew")
+        h_batch_card.pack_propagate(False)
+        self.h_batch = self._combo(h_batch_inner, [], command=lambda *_: self.update_combo_style(self.h_batch))
+        self.h_batch.pack(fill="x")
 
         # SEARCH button
         ctk.CTkButton(left_panel, text="SEARCH",
@@ -884,59 +939,85 @@ class RecordAttendance(ctk.CTkFrame):
                       height=40, corner_radius=8,
                       fg_color="#122aff", hover_color="#0b1eb3", text_color="#ffffff",
                       command=lambda: self.load_history(
-                          self.h_class.get(), self.h_section.get(),
-                          self.h_term.get(), self.h_period.get(),
-                          self.h_subject.get(), stats_frame, tree)
-                      ).grid(row=10, column=0, sticky="ew", pady=(15, 0))
+                          self.h_class.get(),
+                          self.h_term.get(),
+                          self.h_batch.get(),
+                          stats_frame, tree)
+                      ).grid(row=6, column=0, sticky="ew", pady=(15, 0))
 
         left_panel.columnconfigure(0, weight=1)
 
         def on_h_class_changed(choice):
-            if choice in ["Grade 11", "Grade 12"]:
-                self.h_section.configure(values=["STEM-A","ABM-A","HUMSS-A"])
-                self.h_section.set("STEM-A")
-            else:
-                self.h_section.configure(values=["A","B","C","D"])
-                self.h_section.set("A")
             apply_term_combo_for_level(self.h_term, choice)
-            period_opts = ["All Periods"] + get_term_options(choice)
-            self.h_period.configure(values=period_opts)
-            self.h_period.set("All Periods")
+            # Keep History dropdowns empty until user clicks/selects.
+            self.h_term.set("")
             self.update_combo_style(self.h_class)
-            self.update_combo_style(self.h_section)
             self.update_combo_style(self.h_term)
-            self.update_combo_style(self.h_period)
-            load_h_subjects()
+            self._h_batch_display_to_row = {}
+            self.h_batch.configure(values=[])
+            self.h_batch.set("")
+            self.update_combo_style(self.h_batch)
 
-        def load_h_subjects():
-            level = self.h_class.get()
-            group_name = self.h_section.get()
-            if not level or not group_name:
+        def load_h_batches():
+            level = self.h_class.get().strip()
+            term = self.h_term.get().strip()
+            self._h_batch_display_to_row = {}
+            if not level or not term:
+                self.h_batch.configure(values=[])
+                self.h_batch.set("")
+                self.update_combo_style(self.h_batch)
                 return
             try:
                 conn = database.get_connection()
                 cur = conn.cursor()
-                program = self._extract_program(group_name)
-                if program:
-                    cur.execute("""SELECT DISTINCT subjectName FROM SUBJECT
-                                   WHERE level=? AND program=? AND isActive=1
-                                   ORDER BY subjectName""", (level, program))
-                else:
-                    cur.execute("""SELECT DISTINCT subjectName FROM SUBJECT
-                                   WHERE level=? AND (program IS NULL OR program='') AND isActive=1
-                                   ORDER BY subjectName""", (level,))
-                rows = cur.fetchall()
+                params = [level]
+                tutor_filter = ""
+                if str(self.user_role).lower().startswith("tutor") and self.tutor_id:
+                    tutor_filter = " AND (b.tutorID = ?)"
+                    params.append(self.tutor_id)
+                cur.execute(
+                    f"""
+                    SELECT b.batchID, b.batchLabel, b.schedule, s.subjectName
+                    FROM BATCH b
+                    JOIN SUBJECT s ON s.subjectID = b.subjectID
+                    WHERE b.isActive = 1
+                      AND b.level = ?
+                      {tutor_filter}
+                    ORDER BY s.subjectName, b.batchLabel
+                    """,
+                    tuple(params),
+                )
+                rows = [dict(r) for r in cur.fetchall()]
                 conn.close()
-                names = [r["subjectName"] for r in rows]
-                self.h_subject.configure(values=names)
-                self.h_subject.set(names[0] if names else "")
-                self.update_combo_style(self.h_subject)
+                values = []
+                for r in rows:
+                    disp = f"{r['subjectName']} — Batch {r['batchLabel']} — {r['schedule']}"
+                    values.append(disp)
+                    self._h_batch_display_to_row[disp] = {
+                        "batchID": r["batchID"],
+                        "batchLabel": r["batchLabel"],
+                        "schedule": r["schedule"],
+                        "subjectName": r["subjectName"],
+                        "level": level,
+                        "term": term,
+                    }
+                self.h_batch.configure(values=values)
+                # Keep dropdown empty until user clicks/selects or Record tab syncs it.
+                self.h_batch.set("")
+                self.update_combo_style(self.h_batch)
             except Exception:
-                pass
+                self._h_batch_display_to_row = {}
+                self.h_batch.configure(values=[])
+                self.h_batch.set("")
+                self.update_combo_style(self.h_batch)
 
         self.h_class.configure(command=on_h_class_changed)
-        self.h_class.set("Grade 7")
-        on_h_class_changed("Grade 7")
+        self.h_term.configure(command=lambda *_: (self.update_combo_style(self.h_term), load_h_batches()))
+
+        # Render clean initial empty states.
+        self.h_class.set("")
+        self.h_term.set("")
+        self.h_batch.set("")
 
         # ── RIGHT PANEL ───────────────────────────────────────────────────────
         right_panel = ctk.CTkFrame(split_body, fg_color="transparent")
@@ -1003,6 +1084,7 @@ class RecordAttendance(ctk.CTkFrame):
 
         # ── SUMMARY STATS ────────────────────────────────────────────────────
         stats_frame = ctk.CTkFrame(right_panel, fg_color="transparent")
+        self._history_stats_frame = stats_frame
         stats_frame.pack(fill="x", pady=(12, 0))
         for col in range(4):
             stats_frame.columnconfigure(col, weight=1, uniform="stat_col")
@@ -1025,20 +1107,26 @@ class RecordAttendance(ctk.CTkFrame):
         tree.column("Time", width=100, minwidth=90, stretch=False)
         tree.column("Status", width=88, minwidth=72, stretch=False)
 
-    def load_history(self, level, group_name, term, period, subject, stats_frame, tree):
+    def load_history(self, level, term, batch_display, stats_frame, tree):
         for w in stats_frame.winfo_children():
             w.destroy()
 
         for item in tree.get_children():
             tree.delete(item)
 
-        if not all([level, group_name, term, subject]):
+        if not all([level, term, batch_display]):
             messagebox.showwarning("Warning", "Please complete all filters first!")
+            return
+
+        batch_row = self._h_batch_display_to_row.get(batch_display)
+        if not batch_row:
+            messagebox.showwarning("Warning", "Please choose a valid batch.")
             return
 
         try:
             conn = database.get_connection()
             cur = conn.cursor()
+            params = [level, term, batch_row["batchID"]]
             cur.execute("""
                 SELECT r.learnerID,
                        s.studLname || ', ' || s.studFname AS studentName,
@@ -1047,13 +1135,11 @@ class RecordAttendance(ctk.CTkFrame):
                 JOIN REGISTRATION_DETAIL d ON a.detailID = d.detailID
                 JOIN REGISTRATION r ON d.registrationID = r.registrationID
                 JOIN STUDENT s ON r.studentID = s.studentID
-                JOIN SUBJECT sub ON d.subjectID = sub.subjectID
                 WHERE r.level = ?
-                  AND r.groupName = ?
                   AND r.term = ?
-                  AND sub.subjectName = ?
+                  AND d.batchID = ?
                 ORDER BY s.studLname, s.studFname, a.attDate
-            """, (level, group_name, term, subject))
+            """, tuple(params))
             rows = cur.fetchall()
             conn.close()
         except Exception as e:
