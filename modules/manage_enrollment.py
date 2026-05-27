@@ -2,12 +2,16 @@ import tkinter as tk
 import customtkinter as ctk
 from tkinter import messagebox
 import database
-from database import generate_learner_id
+from database import generate_learner_id, price_for_level
 from utils.modern_entry import ModernEntry
 from utils.modern_combo import ModernCombo
 from utils.term_options import apply_term_combo_for_level
 
 class ManageEnrollment(ctk.CTkFrame):
+    # Right-panel scroll areas
+    H_CONFIRM = 160
+    H_SUBJECTS = 280
+
     def __init__(self, parent, user_role="Admin/Staff", user_id=None):
         super().__init__(parent, fg_color="#e4e4e4", corner_radius=0)
         self.pack(fill="both", expand=True)
@@ -17,6 +21,7 @@ class ManageEnrollment(ctk.CTkFrame):
         self.current_student_id = None
         self.subject_vars = {}
         self.selected_subjects = []
+        self.selected_batches = {}  # subjectID -> batchID
         self._suggestions_rows = []
 
         if hasattr(parent.master, "welcome_lbl"):
@@ -50,7 +55,7 @@ class ManageEnrollment(ctk.CTkFrame):
             ctk_logo = ctk.CTkImage(light_image=logo_img, dark_image=logo_img, size=(55, 55))
             ctk.CTkLabel(top_bar, image=ctk_logo, text="").pack(side="right", padx=30)
         else:
-            ctk.CTkLabel(top_bar, text="ABC",
+            ctk.CTkLabel(top_bar, text="ABC", 
                          font=ctk.CTkFont(family="Inter", size=18, weight="bold"),
                          text_color="#122aff").pack(side="right", padx=30)
 
@@ -91,58 +96,199 @@ class ManageEnrollment(ctk.CTkFrame):
             self.list_tab_btn.configure(fg_color="#122aff", text_color="#ffffff")
             self.render_enrollment_list()
 
-    def _card(self, parent, height=None, scrollable=False):
-        card = ctk.CTkFrame(parent, fg_color="#ffffff", corner_radius=16, border_width=1, border_color="#cbd5e1")
+    def _card(self, parent, height=None, scrollable=False, accent_color="#15165e"):
+        card = ctk.CTkFrame(parent, fg_color="#ffffff", corner_radius=14, border_width=1, border_color="#cbd5e1")
         if height:
             card.configure(height=height)
             card.pack_propagate(False)
 
-        accent_container = ctk.CTkFrame(card, width=6, fg_color="transparent")
-        accent_container.pack(side="left", fill="y", padx=(12, 0), pady=12)
-        
-        accent = ctk.CTkFrame(accent_container, width=6, fg_color="#15165e", corner_radius=3)
-        accent.pack(fill="both", expand=True)
+        accent_container = ctk.CTkFrame(card, width=5, fg_color="transparent")
+        accent_container.pack(side="left", fill="y", padx=(10, 0), pady=10)
+        ctk.CTkFrame(accent_container, width=5, fg_color=accent_color, corner_radius=3).pack(fill="y", expand=True)
 
         if scrollable:
             inner = ctk.CTkScrollableFrame(card, fg_color="transparent", corner_radius=0)
         else:
             inner = ctk.CTkFrame(card, fg_color="transparent")
-        inner.pack(fill="both", expand=True, padx=15, pady=12)
+        inner.pack(fill="both", expand=True, padx=14, pady=10)
         return card, inner
+
+    def _section_header(self, parent, title, subtitle=None):
+        wrap = ctk.CTkFrame(parent, fg_color="transparent")
+        wrap.pack(fill="x", pady=(0, 6))
+        ctk.CTkLabel(
+            wrap, text=title,
+            font=ctk.CTkFont(family="Inter", size=15, weight="bold"),
+            text_color="#1e293b",
+        ).pack(anchor="w")
+        if subtitle:
+            ctk.CTkLabel(
+                wrap, text=subtitle,
+                font=ctk.CTkFont(family="Inter", size=11),
+                text_color="#64748b",
+            ).pack(anchor="w", pady=(2, 0))
+        return wrap
+
+    def _info_banner(self, parent, text, accent="#eef2ff"):
+        banner = ctk.CTkFrame(
+            parent, fg_color=accent, corner_radius=10,
+            border_width=1, border_color="#cbd5e1",
+        )
+        banner.pack(fill="x", pady=(0, 8))
+        ctk.CTkLabel(
+            banner, text=text,
+            font=ctk.CTkFont(family="Inter", size=11),
+            text_color="#334155",
+            wraplength=520, justify="left",
+        ).pack(anchor="w", padx=12, pady=8)
+        return banner
+
+    def _batch_slot_text(self, enrolled, capacity):
+        remaining = max(capacity - enrolled, 0)
+        if remaining <= 0:
+            return f"FULL ({capacity}/{capacity})"
+        return f"{remaining} of {capacity} slots open"
+
+    def _batch_slot_subtext(self, enrolled, capacity):
+        return f"{enrolled} student(s) enrolled"
+
+    def _select_batch_tile(self, subject_id, batch_id, tile, peer_tiles):
+        for t in peer_tiles:
+            t.configure(border_color="#e2e8f0", fg_color="#ffffff")
+        tile.configure(border_color="#122aff", fg_color="#eef2ff")
+        self.selected_batches[subject_id] = batch_id
+
+    def _build_batch_tiles(self, parent, subject_id, batches):
+        """Two clickable Batch A / B tiles instead of a long dropdown."""
+        tiles_wrap = ctk.CTkFrame(parent, fg_color="transparent")
+        tiles_wrap.pack(fill="x", pady=(4, 0))
+        tiles_wrap.columnconfigure(0, weight=1)
+        tiles_wrap.columnconfigure(1, weight=1)
+
+        peer_tiles = []
+        first_available = None
+
+        for col, b in enumerate(batches[:2]):
+            enrolled = int(b["enrolled"])
+            capacity = int(b["capacity"])
+            full = enrolled >= capacity
+            remaining = max(capacity - enrolled, 0)
+
+            border = "#fecaca" if full else "#e2e8f0"
+            bg = "#fef2f2" if full else "#ffffff"
+
+            tile = ctk.CTkFrame(
+                tiles_wrap, fg_color=bg, corner_radius=10,
+                border_width=2, border_color=border, height=100,
+            )
+            tile.grid(row=0, column=col, sticky="nsew", padx=(0, 6) if col == 0 else (6, 0), pady=2)
+            tile.pack_propagate(False)
+            peer_tiles.append(tile)
+
+            inner = ctk.CTkFrame(tile, fg_color="transparent")
+            inner.pack(fill="both", expand=True, padx=10, pady=8)
+
+            top_row = ctk.CTkFrame(inner, fg_color="transparent")
+            top_row.pack(fill="x")
+
+            ctk.CTkLabel(                top_row, text=f"Batch {b['batchLabel']}",
+                font=ctk.CTkFont(family="Inter", size=13, weight="bold"),
+                text_color="#15165e" if not full else "#991b1b",
+            ).pack(side="left")
+
+            badge_bg = "#fee2e2" if full else "#dcfce7"
+            badge_fg = "#991b1b" if full else "#166534"
+            badge = ctk.CTkFrame(top_row, fg_color=badge_bg, corner_radius=6)
+            badge.pack(side="right")
+            ctk.CTkLabel(
+                badge, text=self._batch_slot_text(enrolled, capacity),
+                font=ctk.CTkFont(family="Inter", size=10, weight="bold"),
+                text_color=badge_fg,
+            ).pack(padx=8, pady=3)
+
+            ctk.CTkLabel(
+                inner, text=b["schedule"],
+                font=ctk.CTkFont(family="Inter", size=11),
+                text_color="#64748b",
+                wraplength=200, justify="left",
+            ).pack(anchor="w", pady=(4, 2))
+
+            ctk.CTkLabel(
+                inner, text=self._batch_slot_subtext(enrolled, capacity),
+                font=ctk.CTkFont(family="Inter", size=10),
+                text_color="#64748b",
+            ).pack(anchor="w")
+
+            if not full:
+                bid = b["batchID"]
+                if first_available is None:
+                    first_available = (bid, tile)
+
+        for b, tile in zip(batches[:2], peer_tiles):
+            enrolled = int(b["enrolled"])
+            capacity = int(b["capacity"])
+            if enrolled >= capacity:
+                continue
+            bid = b["batchID"]
+            inner = tile.winfo_children()[0]
+            clickables = [tile, inner, *inner.winfo_children()]
+            for widget in clickables:
+                widget.bind(
+                    "<Button-1>", 
+                    lambda _e, sid=subject_id, batch_id=bid, t=tile, peers=peer_tiles: self._select_batch_tile(
+                        sid, batch_id, t, peers
+                    ),
+                )
+                try:
+                    widget.configure(cursor="hand2")
+                except Exception:
+                    pass
+
+        if first_available:
+            bid, tile = first_available
+            self._select_batch_tile(subject_id, bid, tile, peer_tiles)
+
+        return peer_tiles
 
     def render_new_enrollment_form(self):
         for w in self.workspace_canvas.winfo_children():
             w.destroy()
 
         self.current_student_id = None
+        self.selected_batches = {}
 
-        # --- Search Student ---
-        ctk.CTkLabel(self.workspace_canvas, text="SEARCH STUDENT",
-                     font=ctk.CTkFont(family="Inter", size=15, weight="bold"),
-                     text_color="#1e293b").pack(anchor="w", pady=(0, 5))
+        self._section_header(self.workspace_canvas, "Search student", "Find the learner to enroll.")
 
-        search_block = ctk.CTkFrame(self.workspace_canvas, fg_color="transparent")
-        search_block.pack(fill="x", pady=(0, 4))
+        self.search_block = ctk.CTkFrame(self.workspace_canvas, fg_color="transparent")
+        self.search_block.pack(fill="x", pady=(0, 6))
 
-        search_card, search_inner = self._card(search_block, height=55)
-        search_card.pack(fill="x")
+        search_shell = ctk.CTkFrame(
+            self.search_block, fg_color="#ffffff", corner_radius=12,
+            border_width=1, border_color="#cbd5e1",
+        )
+        search_shell.pack(fill="x")
 
-        self.search_entry = ModernEntry(search_inner, placeholder_text="Type Student ID or Name...",
-                                        height=32, font=ctk.CTkFont(family="Inter", size=13))
+        search_inner = ctk.CTkFrame(search_shell, fg_color="transparent")
+        search_inner.pack(fill="x", padx=14, pady=10)
+
+        self.search_entry = ModernEntry(
+            search_inner, placeholder_text="Student ID or name...",
+            height=34, font=ctk.CTkFont(family="Inter", size=13),
+        )
         self.search_entry.pack(fill="x")
         self.search_entry.bind("<KeyRelease>", self._on_search_key)
         self.search_entry.bind("<FocusOut>", lambda _: self.after(250, self._hide_suggestions))
 
         self.suggest_frame = ctk.CTkFrame(
-            search_block, fg_color="#ffffff", corner_radius=10,
-            border_width=1, border_color="#cbd5e1"
+            self.search_block, fg_color="#ffffff", corner_radius=10,
+            border_width=1, border_color="#cbd5e1",
         )
         self.suggest_lbox = tk.Listbox(
             self.suggest_frame,
             bg="#ffffff", fg="#1e293b",
             selectbackground="#122aff", selectforeground="#ffffff",
             font=("Inter", 12), borderwidth=0, highlightthickness=0,
-            height=5, activestyle="none"
+            height=5, activestyle="none",
         )
         self.suggest_lbox.pack(fill="x", padx=8, pady=8)
         self.suggest_lbox.bind("<<ListboxSelect>>", self._on_suggestion_select)
@@ -150,22 +296,21 @@ class ManageEnrollment(ctk.CTkFrame):
         self._build_student_info_area(self.workspace_canvas)
         self.show_no_student_selected()
 
-        # === TWO COLUMN LAYOUT ===
         two_col = ctk.CTkFrame(self.workspace_canvas, fg_color="transparent")
-        two_col.pack(fill="both", expand=True, pady=(0, 0))
-        two_col.columnconfigure(0, weight=1, uniform="col")
-        two_col.columnconfigure(1, weight=1, uniform="col")
-        two_col.grid_rowconfigure(0, minsize=240)
+        two_col.pack(fill="both", expand=True, pady=(4, 0))
+        two_col.columnconfigure(0, weight=2)
+        two_col.columnconfigure(1, weight=3)
+        two_col.rowconfigure(0, weight=1)
 
-        # --- LEFT: Enrollment Details ---
         left_frame = ctk.CTkFrame(two_col, fg_color="transparent")
-        left_frame.grid(row=0, column=0, sticky="nsew", padx=(0, 8))
+        left_frame.grid(row=0, column=0, sticky="nsew", padx=(0, 10))
 
-        ctk.CTkLabel(left_frame, text="ENROLLMENT DETAILS",
-                     font=ctk.CTkFont(family="Inter", size=15, weight="bold"),
-                     text_color="#000000").pack(anchor="w", pady=(0, 5))
+        self._section_header(
+            left_frame, "Enrollment details",
+            "Grade level and term (Term 1 or Term 2).",
+        )
 
-        det_card, det_inner = self._card(left_frame, height=240)
+        det_card, det_inner = self._card(left_frame, accent_color="#24894c")
         det_card.pack(fill="x")
 
         det_inner.columnconfigure(1, weight=1)
@@ -174,33 +319,27 @@ class ManageEnrollment(ctk.CTkFrame):
         self.term_combo.configure(command=self.on_term_changed)
         self.level_combo = self._combo(det_inner, [f"Grade {i}" for i in range(1, 13)])
         self.level_combo.configure(command=self.on_level_changed)
-        self.group_combo = self._combo(det_inner, ["A", "B", "C", "D", "STEM-A", "ABM-A", "HUMSS-A"])
-        self.group_combo.configure(command=self.on_group_changed)
 
         self.level_combo.set("")
         self.term_combo.set("")
-        self.group_combo.set("")
-        
         self.on_level_changed("")
         self.update_combo_style(self.term_combo)
 
-        fields = ["Level", "Group Name", "Term"]
-        widgets = [self.level_combo, self.group_combo, self.term_combo]
+        for i, (label, widget) in enumerate(zip(["Level", "Term"], [self.level_combo, self.term_combo])):
+            ctk.CTkLabel(det_inner, text=label, text_color="#475569",
+                         font=ctk.CTkFont(size=12, weight="bold")).grid(row=i, column=0, sticky="w", pady=6)
+            widget.grid(row=i, column=1, sticky="ew", padx=(16, 0), pady=6)
 
-        for i, (label, widget) in enumerate(zip(fields, widgets)):
-            ctk.CTkLabel(det_inner, text=label, text_color="#444444",
-                         font=ctk.CTkFont(size=13)).grid(row=i, column=0, sticky="w", pady=8)
-            widget.grid(row=i, column=1, sticky="ew", padx=(20, 0), pady=8)
+        ctk.CTkButton(
+            det_inner, text="Continue →",
+            fg_color="#24894c", hover_color="#1d6f3d", text_color="#ffffff",
+            height=38, corner_radius=8,
+            font=ctk.CTkFont(family="Inter", size=13, weight="bold"),
+            command=self.ok_details,
+        ).grid(row=2, column=0, columnspan=2, sticky="ew", pady=(14, 0))
 
-        # OK button OUTSIDE the card, below the left column
-        ctk.CTkButton(left_frame, text="OK", fg_color="#24894c", hover_color="#1d6f3d", text_color="#ffffff",
-                      height=40, corner_radius=8, width=120,
-                      font=ctk.CTkFont(family="Inter", size=14, weight="bold"),
-                      command=self.ok_details).pack(anchor="w", pady=(10, 0))
-
-        # --- RIGHT: Modern Container for Confirmation & Subjects ---
         self.right_frame = ctk.CTkFrame(two_col, fg_color="transparent")
-        self.right_frame.grid(row=0, column=1, sticky="nsew", padx=(8, 0))
+        self.right_frame.grid(row=0, column=1, sticky="nsew")
 
         self.show_confirmation_placeholder()
 
@@ -208,60 +347,61 @@ class ManageEnrollment(ctk.CTkFrame):
         for w in self.right_frame.winfo_children():
             w.destroy()
 
-        ctk.CTkLabel(self.right_frame, text="CONFIRMATION DETAILS",
-                     font=ctk.CTkFont(family="Inter", size=15, weight="bold"),
-                     text_color="#000000").pack(anchor="w", pady=(0, 5))
+        self._section_header(
+            self.right_frame, "CONFIRMATION DETAILS",
+            "Complete the steps on the left to continue.",
+        )
 
-        self.confirm_card, self.confirm_inner = self._card(self.right_frame, height=240)
-        self.confirm_card.pack(fill="x")
+        self.confirm_card, self.confirm_inner = self._card(self.right_frame, height=self.H_CONFIRM)
+        self.confirm_card.pack(fill="both", expand=True)
 
-        placeholder_lbl = ctk.CTkLabel(self.confirm_inner,
-                                       text="Please select a student and complete the\nEnrollment Details on the left, then click OK.",
-                                       font=ctk.CTkFont(family="Inter", size=13),
-                                       text_color="#777777")
-        placeholder_lbl.pack(expand=True)
+        placeholder_lbl = ctk.CTkLabel(
+            self.confirm_inner,
+            text="1. Search and select a student\n2. Choose Level and Term, then click OK",
+            font=ctk.CTkFont(family="Inter", size=13),
+            text_color="#64748b",
+            justify="left",
+        )
+        placeholder_lbl.pack(expand=True, anchor="w", padx=8)
 
     def _build_student_info_area(self, parent):
         self.student_info_card = ctk.CTkFrame(
-            parent, fg_color="#ffffff", corner_radius=12,
-            border_width=1, border_color="#cbd5e1"
+            parent, fg_color="#eef2ff", corner_radius=10,
+            border_width=1, border_color="#c7d2fe", height=44,
         )
-        self.student_info_card.pack(fill="x", pady=(0, 8))
-
+        self.student_info_card.pack_propagate(False)
         self.student_info_inner = ctk.CTkFrame(self.student_info_card, fg_color="transparent")
-        self.student_info_inner.pack(fill="x", padx=14, pady=10)
+        self.student_info_inner.pack(fill="both", expand=True, padx=12, pady=8)
 
     def show_no_student_selected(self):
-        for w in self.student_info_inner.winfo_children():
-            w.destroy()
-        ctk.CTkLabel(
-            self.student_info_inner,
-            text="No student selected yet..",
-            font=ctk.CTkFont(family="Inter", size=13),
-            text_color="#64748b",
-        ).pack(anchor="w")
+        self.student_info_card.pack_forget()
 
     def show_selected_student(self, student_id, full_name):
+        self.student_info_card.pack(fill="x", pady=(0, 8), after=self.search_block)
+
         for w in self.student_info_inner.winfo_children():
             w.destroy()
 
         row = ctk.CTkFrame(self.student_info_inner, fg_color="transparent")
         row.pack(fill="x")
 
-        name_lbl = ctk.CTkLabel(
-            row,
-            text=full_name,
-            font=ctk.CTkFont(family="Inter", size=14, weight="bold"),
-            text_color="#15165e",
-        )
-        name_lbl.pack(side="left")
-
         ctk.CTkLabel(
-            row,
-            text=f"  ·  ID {student_id}",
-            font=ctk.CTkFont(family="Inter", size=12),
+            row, text="Selected:",
+            font=ctk.CTkFont(family="Inter", size=11),
             text_color="#64748b",
         ).pack(side="left")
+
+        ctk.CTkLabel(
+            row, text=full_name,
+            font=ctk.CTkFont(family="Inter", size=13, weight="bold"),
+            text_color="#15165e",
+        ).pack(side="left", padx=(6, 0))
+
+        ctk.CTkLabel(
+            row, text=f"· ID {student_id}",
+            font=ctk.CTkFont(family="Inter", size=11),
+            text_color="#64748b",
+        ).pack(side="left", padx=(6, 0))
 
     def _on_search_key(self, event):
         kw = self.search_entry.get().strip()
@@ -333,11 +473,10 @@ class ManageEnrollment(ctk.CTkFrame):
 
         # 2. Validate basic registration details
         level = self.level_combo.get()
-        group_name = self.group_combo.get()
         term = self.term_combo.get()
 
-        if not level or not group_name or not term:
-            messagebox.showwarning("Warning", "Please complete all fields (Level, Group Name, and Term) first!")
+        if not level or not term:
+            messagebox.showwarning("Warning", "Please complete all fields (Level and Term) first!")
             return
         # 3. Show the Confirmation Details layout
         self.show_confirmation_details()
@@ -346,16 +485,17 @@ class ManageEnrollment(ctk.CTkFrame):
         for w in self.right_frame.winfo_children():
             w.destroy()
 
-        ctk.CTkLabel(self.right_frame, text="CONFIRMATION DETAILS",
-                     font=ctk.CTkFont(family="Inter", size=15, weight="bold"),
-                     text_color="#000000").pack(anchor="w", pady=(0, 5))
+        self._section_header(
+            self.right_frame, "CONFIRMATION DETAILS",
+            "Review student, level, and term before choosing subjects.",
+        )
 
-        self.confirm_card, self.confirm_inner = self._card(self.right_frame, height=240)
-        self.confirm_card.pack(fill="x")
+        self.confirm_card, self.confirm_inner = self._card(self.right_frame, height=self.H_CONFIRM)
+        self.confirm_card.pack(fill="both", expand=True)
 
         level = self.level_combo.get()
         term = self.term_combo.get()
-        group_name = self.group_combo.get()
+        group_name = "Batch Enrollment"
         name = getattr(self, "current_student_name", "N/A")
 
         details_frame = ctk.CTkFrame(self.confirm_inner, fg_color="transparent")
@@ -366,7 +506,6 @@ class ManageEnrollment(ctk.CTkFrame):
         fields = [
             ("NAME:", name),
             ("LEVEL:", level),
-            ("GROUP NAME:", group_name),
             ("TERM:", term),
         ]
 
@@ -397,12 +536,16 @@ class ManageEnrollment(ctk.CTkFrame):
         header_frame = ctk.CTkFrame(self.right_frame, fg_color="transparent")
         header_frame.pack(fill="x", pady=(0, 5))
 
-        ctk.CTkLabel(header_frame, text="SELECT SUBJECTS",
+        title_col = ctk.CTkFrame(header_frame, fg_color="transparent")
+        title_col.pack(side="left", fill="x", expand=True)
+        ctk.CTkLabel(title_col, text="SELECT SUBJECTS",
                      font=ctk.CTkFont(family="Inter", size=15, weight="bold"),
-                     text_color="#000000").pack(side="left")
+                     text_color="#1e293b").pack(anchor="w")
+        ctk.CTkLabel(title_col, text="Uncheck subjects the student is not taking.",
+                     font=ctk.CTkFont(family="Inter", size=11),
+                     text_color="#64748b").pack(anchor="w")
 
-        # Select All Checkbox
-        self.select_all_var = ctk.BooleanVar(value=True)
+        self.select_all_var = ctk.BooleanVar(value=False)
         self.select_all_cb = ctk.CTkCheckBox(header_frame, text="SELECT ALL",
                                               variable=self.select_all_var,
                                               font=ctk.CTkFont(family="Inter", size=15, weight="bold"),
@@ -410,20 +553,211 @@ class ManageEnrollment(ctk.CTkFrame):
                                               command=self.toggle_select_all_subjects)
         self.select_all_cb.pack(side="right", padx=5)
 
-        self.sub_card, self.sub_inner = self._card(self.right_frame, height=240, scrollable=True)
-        self.sub_card.pack(fill="x")
+        self.sub_card, self.sub_inner = self._card(
+            self.right_frame, height=self.H_SUBJECTS, scrollable=True, accent_color="#122aff",
+        )
+        self.sub_card.pack(fill="both", expand=True)
 
         # Create bottom buttons frame for Save Profile
         btn_right_frame = ctk.CTkFrame(self.right_frame, fg_color="transparent")
         btn_right_frame.pack(anchor="e", pady=(10, 0))
 
-        ctk.CTkButton(btn_right_frame, text="SAVE STUDENT PROFILE", fg_color="#24894c", hover_color="#1d6f3d",
-                      text_color="#ffffff", corner_radius=8, height=40, width=200,
+        ctk.CTkButton(btn_right_frame, text="NEXT: CHOOSE BATCHES →", fg_color="#24894c", hover_color="#1d6f3d",
+                      text_color="#ffffff", corner_radius=8, height=40, width=220,
                       font=ctk.CTkFont(family="Inter", size=14, weight="bold"),
-                      command=self.create_enrollment).pack()
+                      command=self.show_select_batches_view).pack()
 
         # Load subjects automatically matching the selection!
         self.load_subjects()
+
+    def show_select_batches_view(self):
+        level = self.level_combo.get()
+        term = self.term_combo.get()
+        if not level or not term:
+            messagebox.showwarning("Warning", "Please select Level and Term first.")
+            return
+
+        for w in self.right_frame.winfo_children():
+            w.destroy()
+
+        header_row = ctk.CTkFrame(self.right_frame, fg_color="transparent")
+        header_row.pack(fill="x", pady=(0, 4))
+
+        title_col = ctk.CTkFrame(header_row, fg_color="transparent")
+        title_col.pack(side="left", fill="x", expand=True)
+        ctk.CTkLabel(
+            title_col, text="Select batches",
+            font=ctk.CTkFont(family="Inter", size=15, weight="bold"),
+            text_color="#1e293b",
+        ).pack(anchor="w")
+        ctk.CTkLabel(
+            title_col,
+            text="Check only subjects the student will take, then pick Batch A or B.",
+            font=ctk.CTkFont(family="Inter", size=11),
+            text_color="#64748b",
+        ).pack(anchor="w")
+
+        preselected = set()
+        if getattr(self, "subject_vars", None):
+            preselected = {sid for sid, v in self.subject_vars.items() if v.get()}
+
+        self._info_banner(
+            self.right_frame,
+            "First-come, first-served: each batch holds up to 15 students per term. "
+            "Green badge = slots still available.",
+        )
+
+        card, inner = self._card(self.right_frame, scrollable=True, accent_color="#122aff")
+        card.pack(fill="both", expand=True)
+
+        self.selected_batches = {}
+        self.batch_subject_vars = {}
+        self._batch_tiles_wraps = {}
+        self._batch_row_cards = {}
+
+        try:
+            conn = database.get_connection()
+            cursor = conn.cursor()
+
+            all_subjects = cursor.execute(
+                """
+                SELECT subjectID, subjectName, pricePerTerm FROM SUBJECT
+                WHERE level = ? AND isActive = 1
+                ORDER BY subjectName
+                """,
+                (level,),
+            ).fetchall()
+
+            if not all_subjects:
+                ctk.CTkLabel(inner, text="No subjects for this grade level.",
+                             text_color="#64748b").pack(pady=20)
+                conn.close()
+                return
+
+            self.batch_select_all_var = ctk.BooleanVar(
+                value=len(preselected) == len(all_subjects) and bool(all_subjects),
+            )
+            ctk.CTkCheckBox(
+                header_row, text="Select all subjects",
+                variable=self.batch_select_all_var,
+                font=ctk.CTkFont(family="Inter", size=12, weight="bold"),
+                fg_color="#122aff", hover_color="#0b1eb3",
+                command=self.toggle_select_all_batch_subjects,
+            ).pack(side="right", padx=4)
+
+            term_price = price_for_level(level)
+            price_hint = (
+                f"₱{term_price:,.0f} per subject per term "
+                f"({level} · 2-hour sessions)"
+            )
+            ctk.CTkLabel(
+                header_row, text=price_hint,
+                font=ctk.CTkFont(family="Inter", size=11),
+                text_color="#64748b",
+            ).pack(side="left", padx=(0, 8))
+
+            for subj in all_subjects:
+                subject_id = subj["subjectID"]
+                subj_name = subj["subjectName"]
+                subj_price = float(subj["pricePerTerm"] or term_price)
+
+                include_var = ctk.BooleanVar(value=subject_id in preselected)
+                self.batch_subject_vars[subject_id] = include_var
+
+                row_card = ctk.CTkFrame(
+                    inner, fg_color="#ffffff", corner_radius=12,
+                    border_width=1, border_color="#cbd5e1",
+                )
+                row_card.pack(fill="x", padx=2, pady=8)
+                self._batch_row_cards[subject_id] = row_card
+
+                row_inner = ctk.CTkFrame(row_card, fg_color="transparent")
+                row_inner.pack(fill="x", padx=14, pady=12)
+
+                head = ctk.CTkFrame(row_inner, fg_color="transparent")
+                head.pack(fill="x", pady=(0, 4))
+
+                ctk.CTkFrame(head, width=4, height=18, fg_color="#122aff", corner_radius=2).pack(
+                    side="left", padx=(0, 8),
+                )
+                title_col = ctk.CTkFrame(head, fg_color="transparent")
+                title_col.pack(side="left", fill="x", expand=True)
+                ctk.CTkLabel(
+                    title_col, text=subj_name,
+                    font=ctk.CTkFont(family="Inter", size=14, weight="bold"),
+                    text_color="#15165e",
+                ).pack(anchor="w")
+                ctk.CTkLabel(
+                    title_col, text=f"₱{subj_price:,.0f} / term",
+                    font=ctk.CTkFont(family="Inter", size=11),
+                    text_color="#64748b",
+                ).pack(anchor="w")
+
+                ctk.CTkCheckBox(
+                    head, text="Enroll in this subject",
+                    variable=include_var,
+                    font=ctk.CTkFont(family="Inter", size=12, weight="bold"),
+                    fg_color="#122aff", hover_color="#0b1eb3",
+                    command=lambda sid=subject_id: self._on_batch_subject_toggle(sid),
+                ).pack(side="right")
+
+                tiles_wrap = ctk.CTkFrame(row_inner, fg_color="transparent")
+                self._batch_tiles_wraps[subject_id] = tiles_wrap
+
+                batches = cursor.execute(
+                    """
+                    SELECT batchID, batchLabel, schedule, capacity,
+                           (
+                             SELECT COUNT(*)
+                             FROM REGISTRATION_DETAIL rd
+                             JOIN REGISTRATION r ON r.registrationID = rd.registrationID
+                             WHERE rd.batchID = b.batchID AND rd.enrollStatus='Active' AND r.term = ?
+                           ) AS enrolled
+                    FROM BATCH b
+                    WHERE b.subjectID = ? AND b.level = ? AND b.isActive = 1
+                    ORDER BY b.batchLabel
+                    """,
+                    (term, subject_id, level),
+                ).fetchall()
+
+                if not batches:
+                    ctk.CTkLabel(
+                        tiles_wrap, text="No batches available for this subject.",
+                        font=ctk.CTkFont(family="Inter", size=12),
+                        text_color="#ef4444",
+                    ).pack(anchor="w")
+                elif not any(int(b["enrolled"]) < int(b["capacity"]) for b in batches):
+                    ctk.CTkLabel(
+                        tiles_wrap,
+                        text="All batches are full for this term.",
+                        font=ctk.CTkFont(family="Inter", size=12),
+                        text_color="#b45309",
+                    ).pack(anchor="w")
+                else:
+                    self._build_batch_tiles(tiles_wrap, subject_id, batches)
+
+                self._on_batch_subject_toggle(subject_id)
+
+            conn.close()
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to load batches: {e}")
+            return
+
+        btn_right_frame = ctk.CTkFrame(self.right_frame, fg_color="transparent")
+        btn_right_frame.pack(anchor="e", pady=(12, 0))
+
+        ctk.CTkButton(
+            btn_right_frame,
+            text="CONFIRM ENROLLMENT",
+            fg_color="#24894c",
+            hover_color="#1d6f3d",
+            text_color="#ffffff",
+            corner_radius=8,
+            height=40,
+            width=200,
+            font=ctk.CTkFont(family="Inter", size=14, weight="bold"),
+            command=self.create_enrollment,
+        ).pack()
 
     def toggle_select_all_subjects(self):
         val = self.select_all_var.get()
@@ -450,10 +784,9 @@ class ManageEnrollment(ctk.CTkFrame):
             widget.destroy()
 
         level = self.level_combo.get()
-        group_name = self.group_combo.get()
 
-        if not level or not group_name:
-            messagebox.showwarning("Warning", "Please select both a Level and Group Name first.")
+        if not level:
+            messagebox.showwarning("Warning", "Please select a Level first.")
             self.sub_placeholder = ctk.CTkLabel(self.sub_inner,
                                                  text="Press OK to load subjects.",
                                                  font=ctk.CTkFont(size=13),
@@ -465,21 +798,12 @@ class ManageEnrollment(ctk.CTkFrame):
         cursor = conn.cursor()
         self.subject_vars = {}
 
-        program = self._extract_program(group_name)
-        if program:
-            cursor.execute("""
-                SELECT subjectID, subjectName, description
-                FROM SUBJECT
-                WHERE level = ? AND program = ? AND isActive = 1
-                ORDER BY subjectName
-            """, (level, program))
-        else:
-            cursor.execute("""
-                SELECT subjectID, subjectName, description
-                FROM SUBJECT
-                WHERE level = ? AND (program IS NULL OR program = '') AND isActive = 1
-                ORDER BY subjectName
-            """, (level,))
+        cursor.execute("""
+            SELECT subjectID, subjectName, description
+            FROM SUBJECT
+            WHERE level = ? AND isActive = 1
+            ORDER BY subjectName
+        """, (level,))
 
         subjects = cursor.fetchall()
         conn.close()
@@ -495,7 +819,7 @@ class ManageEnrollment(ctk.CTkFrame):
         grid_frame.columnconfigure(1, weight=1)
 
         for idx, s in enumerate(subjects):
-            var = ctk.BooleanVar(value=True)
+            var = ctk.BooleanVar(value=False)
             self.subject_vars[s['subjectID']] = var
             row = idx // 2
             col = idx % 2
@@ -506,7 +830,34 @@ class ManageEnrollment(ctk.CTkFrame):
             chk.grid(row=row, column=col, sticky="w", pady=4, padx=10)
 
         if hasattr(self, 'select_all_var'):
-            self.select_all_var.set(True)
+            self.select_all_var.set(False)
+
+    def _get_enrolled_subject_ids(self):
+        """Subjects the student will enroll in (batch screen or subject screen)."""
+        if getattr(self, "batch_subject_vars", None):
+            return [sid for sid, var in self.batch_subject_vars.items() if var.get()]
+        return [sid for sid, var in self.subject_vars.items() if var.get()]
+
+    def toggle_select_all_batch_subjects(self):
+        val = self.batch_select_all_var.get()
+        for sid, var in self.batch_subject_vars.items():
+            var.set(val)
+            self._on_batch_subject_toggle(sid)
+
+    def _on_batch_subject_toggle(self, subject_id):
+        """Show/hide batch tiles when user checks or unchecks a subject."""
+        include = self.batch_subject_vars[subject_id].get()
+        tiles_wrap = self._batch_tiles_wraps.get(subject_id)
+        row_card = self._batch_row_cards.get(subject_id)
+        if not tiles_wrap or not row_card:
+            return
+        if include:
+            tiles_wrap.pack(fill="x", pady=(4, 0))
+            row_card.configure(fg_color="#ffffff", border_color="#cbd5e1")
+        else:
+            tiles_wrap.pack_forget()
+            row_card.configure(fg_color="#f8fafc", border_color="#e2e8f0")
+            self.selected_batches.pop(subject_id, None)
 
     # ==================== Other Functions ====================
     def create_enrollment(self):
@@ -515,16 +866,22 @@ class ManageEnrollment(ctk.CTkFrame):
             return
 
         level = self.level_combo.get()
-        group_name = self.group_combo.get()
         term = self.term_combo.get()
 
-        if not level or not group_name or not term:
-            messagebox.showwarning("Warning", "Please complete all fields (Level, Group Name, and Term) first!")
+        if not level or not term:
+            messagebox.showwarning("Warning", "Please complete all fields (Level and Term) first!")
             return
 
-        selected_subjects = [sid for sid, var in self.subject_vars.items() if var.get()]
+        selected_subjects = self._get_enrolled_subject_ids()
         if not selected_subjects:
-            messagebox.showwarning("Warning", "Select at least one subject before saving.")
+            messagebox.showwarning(
+                "Warning",
+                "Check at least one subject to enroll in, then choose a batch for each.",
+            )
+            return
+
+        if any(sid not in self.selected_batches for sid in selected_subjects):
+            messagebox.showwarning("Warning", "Please choose a batch for each selected subject.")
             return
 
         try:
@@ -538,7 +895,8 @@ class ManageEnrollment(ctk.CTkFrame):
                 staff_id = staff_row['staffID'] if staff_row else 1
 
             learner_id = generate_learner_id(term)
-            program = self._extract_program(group_name)
+            group_name = "Batch Enrollment"
+            program = None
 
             cursor.execute("""
                 INSERT INTO REGISTRATION
@@ -553,11 +911,45 @@ class ManageEnrollment(ctk.CTkFrame):
                 UPDATE STUDENT SET level = ?, program = ? WHERE studentID = ?
             """, (level, program, self.current_student_id))
 
+            # Capacity check: max 15 students per batch per term
             for subject_id in selected_subjects:
+                batch_id = self.selected_batches.get(subject_id)
+                cursor.execute(
+                    """
+                    SELECT COUNT(*) AS c
+                    FROM REGISTRATION_DETAIL rd
+                    JOIN REGISTRATION r ON r.registrationID = rd.registrationID
+                    WHERE rd.batchID = ? AND rd.enrollStatus = 'Active' AND r.term = ?
+                    """,
+                    (batch_id, term),
+                )
+                enrolled_count = cursor.fetchone()["c"]
+                cursor.execute("SELECT capacity, isActive FROM BATCH WHERE batchID = ?", (batch_id,))
+                batch_row = cursor.fetchone()
+                if not batch_row or int(batch_row["isActive"]) != 1:
+                    raise ValueError("Selected batch is not active.")
+                if enrolled_count >= int(batch_row["capacity"]):
+                    raise ValueError(
+                        "One of the selected batches is already full (max 15). "
+                        "Enrollment is first-come, first-served — try another batch or term."
+                    )
+
+            for subject_id in selected_subjects:
+                batch_id = self.selected_batches.get(subject_id)
+                sub_row = cursor.execute(
+                    "SELECT pricePerTerm FROM SUBJECT WHERE subjectID = ?",
+                    (subject_id,),
+                ).fetchone()
+                fee_amount = (
+                    float(sub_row["pricePerTerm"])
+                    if sub_row and sub_row["pricePerTerm"] is not None
+                    else price_for_level(level)
+                )
                 cursor.execute("""
-                    INSERT INTO REGISTRATION_DETAIL (registrationID, subjectID)
-                    VALUES (?, ?)
-                """, (registration_id, subject_id))
+                    INSERT INTO REGISTRATION_DETAIL
+                        (registrationID, subjectID, batchID, feeAmount, enrollStatus)
+                    VALUES (?, ?, ?, ?, 'Active')
+                """, (registration_id, subject_id, batch_id, fee_amount))
 
             conn.commit()
             conn.close()
@@ -571,12 +963,12 @@ class ManageEnrollment(ctk.CTkFrame):
 
             self.level_combo.set("")
             self.term_combo.set("")
-            self.group_combo.set("")
             self.on_level_changed("")
             self.update_combo_style(self.term_combo)
 
             self.show_confirmation_placeholder()
             self.subject_vars = {}
+            self.selected_batches = {}
 
         except Exception as e:
             messagebox.showerror("Error", f"Failed to create registration:\n{e}")
@@ -599,9 +991,10 @@ class ManageEnrollment(ctk.CTkFrame):
         search_row = ctk.CTkFrame(inner, fg_color="transparent")
         search_row.pack(fill="x")
 
-        self.class_search_entry = ModernEntry(search_row, placeholder_text="Grade 7 - A",
+        self.class_search_entry = ModernEntry(search_row, placeholder_text="Search grade level or batch…",
                                               height=32, font=ctk.CTkFont(family="Inter", size=13))
         self.class_search_entry.pack(side="left", fill="x", expand=True)
+        self.class_search_entry.delete(0, tk.END)
 
         ctk.CTkButton(search_row, text="SEARCH", width=130, height=40,
                       fg_color="#122aff", hover_color="#0b1eb3", corner_radius=8,
@@ -621,7 +1014,7 @@ class ManageEnrollment(ctk.CTkFrame):
         self.tree_frame.bind("<Configure>", self._fit_enrollment_tree_to_card)
 
         import tkinter.ttk as ttk
-        columns = ("Learner ID", "Student Name", "Level & Group", "Term", "Staff", "Status")
+        columns = ("Learner ID", "Student Name", "Grade Level", "Batch", "Term", "Staff", "Status")
 
         style = ttk.Style()
         style.theme_use("clam")
@@ -667,8 +1060,8 @@ class ManageEnrollment(ctk.CTkFrame):
 
         self.class_search_entry.bind("<KeyRelease>", lambda e: self.search_enrollment_by_class())
 
-        col_widths = [130, 220, 140, 110, 150, 90]
-        col_anchors = ["center", "w", "center", "center", "center", "center"]
+        col_widths = [120, 200, 100, 90, 90, 140, 80]
+        col_anchors = ["center", "w", "center", "center", "center", "center", "center"]
         for col, width, anchor in zip(columns, col_widths, col_anchors):
             self.tree.heading(col, text=col)
             self.tree.column(col, width=width, anchor=anchor, minwidth=width)
@@ -698,10 +1091,18 @@ class ManageEnrollment(ctk.CTkFrame):
         if int(self.tree.cget("height")) != rows:
             self.tree.configure(height=rows)
 
+    def _format_batch_labels(self, batch_labels):
+        """Comma-separated batch labels from DB -> 'Batch A, Batch B' or —."""
+        if not batch_labels:
+            return "—"
+        parts = [b.strip() for b in str(batch_labels).split(",") if b.strip()]
+        if not parts:
+            return "—"
+        return ", ".join(f"Batch {p}" if not p.upper().startswith("BATCH") else p for p in parts)
+
     def _insert_enrollment_rows(self, rows):
         for idx, row in enumerate(rows):
             full_name = f"{row['studLname']}, {row['studFname']} {row['studMname'] or ''}".strip()
-            level_group = f"{row['level']} - {row['groupName']}"
             staff_name = f"{row['staffFname']} {row['staffLname']}" if row['staffFname'] else "—"
             tag = "evenrow" if idx % 2 == 0 else "oddrow"
             self.tree.insert(
@@ -710,7 +1111,8 @@ class ManageEnrollment(ctk.CTkFrame):
                 values=(
                     row["learnerID"] or "—",
                     full_name,
-                    level_group,
+                    row["level"] or "—",
+                    self._format_batch_labels(row["batchLabels"] if row["batchLabels"] else None),
                     row["term"],
                     staff_name,
                     row["regStatus"],
@@ -719,6 +1121,26 @@ class ManageEnrollment(ctk.CTkFrame):
             )
         self.after_idle(self._fit_enrollment_tree_to_card)
 
+    def _enrollment_list_query(self, where_clause="", params=()):
+        """Shared SELECT for enrollment list with aggregated batch labels."""
+        return f"""
+            SELECT r.learnerID, r.level, r.term, r.regStatus,
+                   s.studFname, s.studLname, s.studMname,
+                   st.staffFname, st.staffLname,
+                   (
+                     SELECT GROUP_CONCAT(DISTINCT b.batchLabel)
+                     FROM REGISTRATION_DETAIL rd
+                     JOIN BATCH b ON b.batchID = rd.batchID
+                     WHERE rd.registrationID = r.registrationID
+                       AND rd.enrollStatus = 'Active'
+                   ) AS batchLabels
+            FROM REGISTRATION r
+            JOIN STUDENT s ON r.studentID = s.studentID
+            LEFT JOIN STAFF st ON r.staffID = st.staffID
+            {where_clause}
+            ORDER BY r.registrationID DESC
+        """
+
     def load_all_enrollments(self):
         for item in self.tree.get_children():
             self.tree.delete(item)
@@ -726,21 +1148,13 @@ class ManageEnrollment(ctk.CTkFrame):
         try:
             conn = database.get_connection()
             cursor = conn.cursor()
-            cursor.execute("""
-                SELECT r.learnerID, r.level, r.groupName, r.term, r.regStatus,
-                       s.studFname, s.studLname, s.studMname,
-                       st.staffFname, st.staffLname
-                FROM REGISTRATION r
-                JOIN STUDENT s ON r.studentID = s.studentID
-                LEFT JOIN STAFF st ON r.staffID = st.staffID
-                ORDER BY r.registrationID DESC
-            """)
-            rows = cursor.fetchall()
+            cursor.execute(self._enrollment_list_query())
+            rows = [dict(r) for r in cursor.fetchall()]
             conn.close()
 
             self._insert_enrollment_rows(rows)
         except Exception as e:
-            print("Error loading enrollments:", e)
+            messagebox.showerror("Error", f"Could not load enrollment list:\n{e}")
 
     def search_enrollment_by_class(self):
         keyword = self.class_search_entry.get().strip()
@@ -754,17 +1168,24 @@ class ManageEnrollment(ctk.CTkFrame):
         try:
             conn = database.get_connection()
             cursor = conn.cursor()
-            cursor.execute("""
-                SELECT r.learnerID, r.level, r.groupName, r.term, r.regStatus,
-                       s.studFname, s.studLname, s.studMname,
-                       st.staffFname, st.staffLname
-                FROM REGISTRATION r
-                JOIN STUDENT s ON r.studentID = s.studentID
-                LEFT JOIN STAFF st ON r.staffID = st.staffID
-                WHERE UPPER(r.level || ' - ' || r.groupName) LIKE UPPER(?)
-                ORDER BY r.registrationID DESC
-            """, (f"%{keyword}%",))
-            rows = cursor.fetchall()
+            like = f"%{keyword}%"
+            cursor.execute(
+                self._enrollment_list_query(
+                    """
+                WHERE UPPER(r.level) LIKE UPPER(?)
+                   OR EXISTS (
+                        SELECT 1
+                        FROM REGISTRATION_DETAIL rd
+                        JOIN BATCH b ON b.batchID = rd.batchID
+                        WHERE rd.registrationID = r.registrationID
+                          AND rd.enrollStatus = 'Active'
+                          AND UPPER(b.batchLabel) LIKE UPPER(?)
+                   )
+                """
+                ),
+                (like, like),
+            )
+            rows = [dict(r) for r in cursor.fetchall()]
             conn.close()
 
             self._insert_enrollment_rows(rows)
@@ -773,30 +1194,15 @@ class ManageEnrollment(ctk.CTkFrame):
 
     def on_level_changed(self, choice):
         if not choice:
-            self.group_combo.configure(values=[])
-            self.group_combo.set("")
-            self.group_combo.configure(state="disabled")
             apply_term_combo_for_level(self.term_combo, "")
-        elif choice in [f"Grade {i}" for i in range(1, 11)]:
-            self.group_combo.configure(state="readonly")
-            self.group_combo.configure(values=["A", "B", "C", "D"])
-            self.group_combo.set("")
-            apply_term_combo_for_level(self.term_combo, choice)
         else:
-            self.group_combo.configure(state="readonly")
-            self.group_combo.configure(values=["STEM-A", "ABM-A", "HUMSS-A"])
-            self.group_combo.set("")
             apply_term_combo_for_level(self.term_combo, choice)
 
         self.update_combo_style(self.level_combo)
         self.update_combo_style(self.term_combo)
-        self.update_combo_style(self.group_combo)
 
     def on_term_changed(self, choice):
         self.update_combo_style(self.term_combo)
-
-    def on_group_changed(self, choice):
-        self.update_combo_style(self.group_combo)
 
     def update_combo_style(self, combo):
         val = combo.get().strip()
