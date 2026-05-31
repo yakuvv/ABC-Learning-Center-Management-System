@@ -12,6 +12,18 @@ from utils.modern_combo import ModernCombo
 from utils.term_options import apply_term_combo_for_level, get_term_options
 
 
+class BatchPickerCombo(ModernCombo):
+    def __init__(self, master, on_open_popup, **kwargs):
+        kwargs.setdefault("values", [""])
+        super().__init__(master, **kwargs)
+        self._on_open_popup = on_open_popup
+        self.set("")
+
+    def _open_dropdown_menu(self):
+        if self._on_open_popup:
+            self._on_open_popup()
+
+
 def convert_grade(numeric):
     """Convert a numeric grade (0-100) to (letter_grade, description) tuple."""
     if numeric >= 95:
@@ -126,10 +138,21 @@ class ManageGrades(ctk.CTkFrame):
         self._class_suggestions_rows = []
         self._batch_display_to_row = {}
         self._selected_batch = None
+        self._selected_subject_code = None  # subjCode chosen via Subject picker
         self.create_ui()
 
     def _combo(self, parent, values, **kwargs):
         return ModernCombo(parent, values=values, **kwargs)
+
+    def _batch_combo(self, parent, **kwargs):
+        def open_popup():
+            self.open_batch_popup()
+        return BatchPickerCombo(parent, on_open_popup=open_popup, **kwargs)
+
+    def _subject_combo_grades(self, parent, **kwargs):
+        def open_popup():
+            self.open_subject_popup_grades()
+        return BatchPickerCombo(parent, on_open_popup=open_popup, **kwargs)
 
     @staticmethod
     def _add_combo_underline(parent, combo):
@@ -226,7 +249,7 @@ class ManageGrades(ctk.CTkFrame):
         filter_inner = ctk.CTkFrame(filter_card, fg_color="transparent")
         filter_inner.pack(fill="both", expand=True, padx=15, pady=10)
 
-        for col in range(3):
+        for col in range(4):
             filter_inner.grid_columnconfigure(col, weight=1)
 
         # Grade Level
@@ -242,13 +265,23 @@ class ManageGrades(ctk.CTkFrame):
         self.grade_combo.pack(fill="x")
         self._add_combo_underline(grade_wrap, self.grade_combo)
 
+        # SUBJECT picker
+        ctk.CTkLabel(filter_inner, text="SUBJECT",
+                     font=ctk.CTkFont(family="Inter", size=15, weight="bold"),
+                     text_color="#444444").grid(row=0, column=1, sticky="w", padx=(0, 8))
+        subject_wrap_g = ctk.CTkFrame(filter_inner, fg_color="transparent")
+        subject_wrap_g.grid(row=1, column=1, sticky="ew", padx=(0, 8))
+        self.subject_combo_g = self._subject_combo_grades(subject_wrap_g)
+        self.subject_combo_g.pack(fill="x")
+        self._add_combo_underline(subject_wrap_g, self.subject_combo_g)
+
         # BATCH
         ctk.CTkLabel(filter_inner, text="BATCH",
                      font=ctk.CTkFont(family="Inter", size=15, weight="bold"),
-                     text_color="#444444").grid(row=0, column=1, sticky="w", padx=(0, 8))
+                     text_color="#444444").grid(row=0, column=2, sticky="w", padx=(0, 8))
         section_wrap = ctk.CTkFrame(filter_inner, fg_color="transparent")
-        section_wrap.grid(row=1, column=1, sticky="ew", padx=(0, 8))
-        self.section_combo = self._combo(section_wrap, [], command=self.on_batch_changed)
+        section_wrap.grid(row=1, column=2, sticky="ew", padx=(0, 8))
+        self.section_combo = self._batch_combo(section_wrap, command=self.on_batch_changed)
         self.section_combo.pack(fill="x")
         self._add_combo_underline(section_wrap, self.section_combo)
 
@@ -256,10 +289,10 @@ class ManageGrades(ctk.CTkFrame):
         self.term_label = ctk.CTkLabel(filter_inner, text="TERM",
                                        font=ctk.CTkFont(family="Inter", size=15, weight="bold"),
                                        text_color="#444444")
-        self.term_label.grid(row=0, column=2, sticky="w", padx=(0, 8))
+        self.term_label.grid(row=0, column=3, sticky="w", padx=(0, 8))
 
         term_wrap = ctk.CTkFrame(filter_inner, fg_color="transparent")
-        term_wrap.grid(row=1, column=2, sticky="ew", padx=(0, 8))
+        term_wrap.grid(row=1, column=3, sticky="ew", padx=(0, 8))
         self.term_combo = self._combo(term_wrap, [], command=self.on_term_changed)
         self.term_combo.pack(fill="x")
         self._add_combo_underline(term_wrap, self.term_combo)
@@ -393,6 +426,7 @@ class ManageGrades(ctk.CTkFrame):
         self.on_grade_changed("")
         self.grade_combo.set("")
         self.term_combo.set("")
+        self.subject_combo_g.set("")
         self.section_combo.set("")
 
     # ─────────────────────────────────────────────────────────────────────────
@@ -413,6 +447,11 @@ class ManageGrades(ctk.CTkFrame):
     def on_grade_changed(self, choice):
         apply_term_combo_for_level(self.term_combo, choice)
         self.term_combo.set("")
+        # Reset subject and batch when grade changes
+        self._selected_subject_code = None
+        self.subject_combo_g.set("")
+        self.section_combo.set("")
+        self._selected_batch = None
         self.load_batches_for_filters()
 
     def on_term_changed(self, choice):
@@ -421,10 +460,308 @@ class ManageGrades(ctk.CTkFrame):
             self._batch_display_to_row[key]["term"] = choice
 
     def on_batch_changed(self, choice):
-        if choice in self._batch_display_to_row:
-            self._selected_batch = self._batch_display_to_row[choice]
-        else:
-            self._selected_batch = None
+        # If _selected_batch was already set by the popup tile click, keep it
+        if self._selected_batch:
+            existing_short = f"Batch {self._selected_batch.get('batchLabel')} | {self._selected_batch.get('schedule')}"
+            if existing_short == choice and (not self._selected_subject_code or self._selected_batch.get('subjCode') == self._selected_subject_code):
+                return  # already correct, don't overwrite
+        # Fallback: search by short format
+        matched = None
+        for val in self._batch_display_to_row.values():
+            short_fmt = f"Batch {val.get('batchLabel')} | {val.get('schedule')}"
+            if short_fmt == choice:
+                if self._selected_subject_code and val.get("subjCode") == self._selected_subject_code:
+                    matched = val
+                    break
+                elif not self._selected_subject_code:
+                    matched = val
+                    break
+        self._selected_batch = matched
+
+    def open_subject_popup_grades(self):
+        """Open a popup showing all subjects for the selected level (Grades module)."""
+        level = self.grade_combo.get().strip()
+        if not level:
+            messagebox.showinfo("Select Level", "Please select a Level first.")
+            return
+
+        try:
+            conn = database.get_connection()
+            cur = conn.cursor()
+            cur.execute("""
+                SELECT DISTINCT s.subjCode, s.subjectName
+                FROM SUBJECT s
+                WHERE s.level = ? AND s.isActive = 1
+                ORDER BY s.subjCode
+            """, (level,))
+            subjects = cur.fetchall()
+            conn.close()
+        except Exception as e:
+            messagebox.showerror("Error", f"Could not load subjects:\n{e}")
+            return
+
+        if not subjects:
+            messagebox.showinfo("No Subjects", f"No subjects found for {level}.")
+            return
+
+        popup = ctk.CTkToplevel(self)
+        popup.title("Select Subject")
+        popup.geometry("900x640")
+        popup.resizable(True, True)
+        popup.minsize(800, 500)
+        popup.configure(fg_color="#e4e4e4")
+        popup.transient(self.winfo_toplevel())
+
+        sw = popup.winfo_screenwidth()
+        sh = popup.winfo_screenheight()
+        popup.geometry(f"900x640+{(sw - 900) // 2}+{(sh - 640) // 2}")
+
+        top_bar = ctk.CTkFrame(popup, height=60, fg_color="#15165e", corner_radius=0)
+        top_bar.pack(fill="x", side="top")
+        top_bar.pack_propagate(False)
+        ctk.CTkLabel(top_bar, text=f"SELECT A SUBJECT  —  {level}",
+                     font=ctk.CTkFont(family="Inter", size=16, weight="bold"),
+                     text_color="#ffffff").pack(side="left", padx=20, pady=15)
+
+        scroll_outer = tk.Frame(popup, bg="#e4e4e4")
+        scroll_outer.pack(fill="both", expand=True, padx=20, pady=(10, 5))
+        canvas = tk.Canvas(scroll_outer, bg="#e4e4e4", highlightthickness=0)
+        scrollbar = tk.Scrollbar(scroll_outer, orient="vertical", command=canvas.yview)
+        scroll_inner = tk.Frame(canvas, bg="#e4e4e4")
+        scroll_inner.bind("<Configure>", lambda e: canvas.configure(scrollregion=canvas.bbox("all")))
+        canvas.create_window((0, 0), window=scroll_inner, anchor="nw", tags="inner")
+        canvas.configure(yscrollcommand=scrollbar.set)
+        canvas.bind("<Configure>", lambda e: canvas.itemconfig("inner", width=e.width))
+        scrollbar.pack(side="right", fill="y")
+        canvas.pack(side="left", fill="both", expand=True)
+
+        def _wheel(event):
+            canvas.yview_scroll(int(-1 * (event.delta / 120)) if event.delta else (-1 if event.num == 4 else 1), "units")
+        canvas.bind_all("<Button-4>", _wheel)
+        canvas.bind_all("<Button-5>", _wheel)
+        popup.bind("<Destroy>", lambda e: (canvas.unbind_all("<Button-4>"), canvas.unbind_all("<Button-5>")))
+
+        tiles_wrap = tk.Frame(scroll_inner, bg="#e4e4e4")
+        tiles_wrap.pack(fill="x", padx=4, pady=4)
+        tiles_wrap.columnconfigure(0, weight=1)
+        tiles_wrap.columnconfigure(1, weight=1)
+
+        for idx, subj_row in enumerate(subjects):
+            code = subj_row["subjCode"]
+            name = subj_row["subjectName"]
+            col = idx % 2
+            row = idx // 2
+
+            tile = tk.Frame(tiles_wrap, bg="#ffffff", bd=1, relief="solid",
+                            highlightthickness=1, highlightbackground="#e2e8f0",
+                            highlightcolor="#122aff")
+            tile.grid(row=row, column=col, sticky="nsew", padx=4, pady=4)
+
+            lbl_code = tk.Label(tile, text=code,
+                                font=("Inter", 12, "bold"), fg="#15165e", bg="#ffffff", anchor="w")
+            lbl_code.pack(fill="x", padx=10, pady=(8, 0))
+
+            lbl_name = tk.Label(tile, text=name,
+                                font=("Inter", 10), fg="#64748b", bg="#ffffff", anchor="w")
+            lbl_name.pack(fill="x", padx=10, pady=(0, 8))
+
+            def on_click(event, c=code):
+                self._selected_subject_code = c
+                self.subject_combo_g.set(c)
+                # Reset batch when subject changes
+                self.section_combo.set("")
+                self._selected_batch = None
+                popup.destroy()
+
+            def on_enter(event, t=tile, l1=lbl_code, l2=lbl_name):
+                t.configure(bg="#eef2ff", highlightbackground="#122aff")
+                l1.configure(bg="#eef2ff")
+                l2.configure(bg="#eef2ff")
+
+            def on_leave(event, t=tile, l1=lbl_code, l2=lbl_name):
+                t.configure(bg="#ffffff", highlightbackground="#e2e8f0")
+                l1.configure(bg="#ffffff")
+                l2.configure(bg="#ffffff")
+
+            for w in (tile, lbl_code, lbl_name):
+                w.bind("<Button-1>", on_click)
+                w.bind("<Enter>", on_enter)
+                w.bind("<Leave>", on_leave)
+                w.configure(cursor="hand2")
+
+        btn_frame = tk.Frame(popup, bg="#e4e4e4")
+        btn_frame.pack(fill="x", pady=(5, 12))
+        ctk.CTkButton(btn_frame, text="CLOSE",
+                      font=ctk.CTkFont(family="Inter", size=13, weight="bold"),
+                      fg_color="#374151", hover_color="#1f2937", text_color="#ffffff",
+                      width=160, height=38, corner_radius=8,
+                      command=popup.destroy).pack(anchor="center")
+
+        popup.update_idletasks()
+        try:
+            popup.grab_set()
+        except Exception:
+            pass
+
+    def open_batch_popup(self):
+        level = self.grade_combo.get().strip()
+
+        if not level:
+            messagebox.showinfo("Select Filters", "Please select a Level first.")
+            return
+
+        if not self._selected_subject_code:
+            messagebox.showinfo("Select Subject", "Please select a Subject first.")
+            return
+
+        full_mapping = self._batch_display_to_row
+        if not full_mapping:
+            messagebox.showinfo("No Batches", "No active batches found for the selected Level.")
+            return
+
+        # Filter by selected subject
+        batch_mapping = {k: v for k, v in full_mapping.items()
+                         if v.get("subjCode") == self._selected_subject_code}
+        if not batch_mapping:
+            messagebox.showinfo("No Batches", f"No batches found for subject '{self._selected_subject_code}'.")
+            return
+
+        popup = ctk.CTkToplevel(self)
+        popup.title("Select Batch")
+        popup.geometry("900x640")
+        popup.resizable(True, True)
+        popup.minsize(800, 500)
+        popup.configure(fg_color="#e4e4e4")
+        popup.transient(self.winfo_toplevel())
+
+        # Center popup on screen BEFORE rendering content
+        screen_width = popup.winfo_screenwidth()
+        screen_height = popup.winfo_screenheight()
+        x = (screen_width - 900) // 2
+        y = (screen_height - 640) // 2
+        popup.geometry(f"900x640+{x}+{y}")
+
+        # Top Bar (only heavy widget — just 1 frame + 1 label)
+        top_bar = ctk.CTkFrame(popup, height=60, fg_color="#15165e", corner_radius=0)
+        top_bar.pack(fill="x", side="top")
+        top_bar.pack_propagate(False)
+        ctk.CTkLabel(top_bar, text="SELECT A BATCH",
+                      font=ctk.CTkFont(family="Inter", size=16, weight="bold"),
+                      text_color="#ffffff").pack(side="left", padx=20, pady=15)
+
+        # ── Lightweight scrollable area using plain tkinter ──
+        scroll_outer = tk.Frame(popup, bg="#e4e4e4")
+        scroll_outer.pack(fill="both", expand=True, padx=20, pady=(10, 5))
+
+        canvas = tk.Canvas(scroll_outer, bg="#e4e4e4", highlightthickness=0)
+        scrollbar = tk.Scrollbar(scroll_outer, orient="vertical", command=canvas.yview)
+        scroll_inner = tk.Frame(canvas, bg="#e4e4e4")
+
+        scroll_inner.bind("<Configure>", lambda e: canvas.configure(scrollregion=canvas.bbox("all")))
+        canvas.create_window((0, 0), window=scroll_inner, anchor="nw", tags="inner")
+        canvas.configure(yscrollcommand=scrollbar.set)
+
+        # Make scroll_inner fill canvas width
+        def _resize_inner(event):
+            canvas.itemconfig("inner", width=event.width)
+        canvas.bind("<Configure>", _resize_inner)
+
+        scrollbar.pack(side="right", fill="y")
+        canvas.pack(side="left", fill="both", expand=True)
+
+        # Mouse wheel scrolling
+        def _on_mousewheel(event):
+            canvas.yview_scroll(int(-1 * (event.delta / 120)) if event.delta else (-1 if event.num == 4 else 1), "units")
+        canvas.bind_all("<Button-4>", _on_mousewheel)
+        canvas.bind_all("<Button-5>", _on_mousewheel)
+        popup.bind("<Destroy>", lambda e: (canvas.unbind_all("<Button-4>"), canvas.unbind_all("<Button-5>")))
+
+        # Organize by subjCode
+        organized = {}
+        for disp, data in batch_mapping.items():
+            subj = data["subjCode"]
+            if subj not in organized:
+                organized[subj] = []
+            organized[subj].append((disp, data))
+
+        # ── Build tiles with PLAIN tkinter widgets (fast!) ──
+        for subj, batches in organized.items():
+            subj_frame = tk.Frame(scroll_inner, bg="#ffffff", bd=1, relief="solid", padx=0, pady=0)
+            subj_frame.pack(fill="x", pady=(0, 10), padx=2)
+
+            # Accent bar + content
+            accent = tk.Frame(subj_frame, bg="#15165e", width=5)
+            accent.pack(side="left", fill="y", padx=(8, 0), pady=8)
+
+            inner = tk.Frame(subj_frame, bg="#ffffff")
+            inner.pack(fill="both", expand=True, padx=10, pady=8)
+
+            tk.Label(inner, text=subj, font=("Inter", 12, "bold"),
+                     fg="#15165e", bg="#ffffff", anchor="w").pack(fill="x", pady=(0, 6))
+
+            tiles_wrap = tk.Frame(inner, bg="#ffffff")
+            tiles_wrap.pack(fill="x")
+            tiles_wrap.columnconfigure(0, weight=1)
+            tiles_wrap.columnconfigure(1, weight=1)
+
+            for idx, (disp, data) in enumerate(batches):
+                col = idx % 2
+                row = idx // 2
+
+                tile = tk.Frame(tiles_wrap, bg="#f8fafc", bd=1, relief="solid",
+                                highlightthickness=1, highlightbackground="#e2e8f0",
+                                highlightcolor="#122aff")
+                tile.grid(row=row, column=col, sticky="nsew", padx=3, pady=3)
+
+                lbl1 = tk.Label(tile, text=f"Batch {data['batchLabel']}",
+                                font=("Inter", 11, "bold"), fg="#1e293b", bg="#f8fafc",
+                                anchor="w")
+                lbl1.pack(fill="x", padx=8, pady=(6, 0))
+
+                lbl2 = tk.Label(tile, text=data['schedule'],
+                                font=("Inter", 10), fg="#64748b", bg="#f8fafc",
+                                anchor="w")
+                lbl2.pack(fill="x", padx=8, pady=(0, 6))
+
+                def on_click(event, d=disp, bd=data):
+                    short_disp = f"Batch {bd['batchLabel']} | {bd['schedule']}"
+                    self._selected_batch = bd
+                    self.section_combo.set(short_disp)
+                    cmd = self.section_combo.cget("command")
+                    if cmd: cmd(short_disp)
+                    popup.destroy()
+
+                def on_enter(event, t=tile, l1=lbl1, l2=lbl2):
+                    t.configure(bg="#eef2ff", highlightbackground="#122aff")
+                    l1.configure(bg="#eef2ff")
+                    l2.configure(bg="#eef2ff")
+
+                def on_leave(event, t=tile, l1=lbl1, l2=lbl2):
+                    t.configure(bg="#f8fafc", highlightbackground="#e2e8f0")
+                    l1.configure(bg="#f8fafc")
+                    l2.configure(bg="#f8fafc")
+
+                for widget in (tile, lbl1, lbl2):
+                    widget.bind("<Button-1>", on_click)
+                    widget.bind("<Enter>", on_enter)
+                    widget.bind("<Leave>", on_leave)
+                    widget.configure(cursor="hand2")
+
+        # Close Button (only CTk widget in footer for styling)
+        btn_frame = tk.Frame(popup, bg="#e4e4e4")
+        btn_frame.pack(fill="x", pady=(5, 12))
+        close_btn = ctk.CTkButton(btn_frame, text="CLOSE",
+                                  font=ctk.CTkFont(family="Inter", size=13, weight="bold"),
+                                  fg_color="#374151", hover_color="#1f2937", text_color="#ffffff",
+                                  width=160, height=38, corner_radius=8,
+                                  command=popup.destroy)
+        close_btn.pack(anchor="center")
+
+        popup.update_idletasks()
+        try:
+            popup.grab_set()
+        except Exception:
+            pass
 
     def load_batches_for_filters(self):
         """Load batches for level. Tutor accounts only see their own batches."""
@@ -450,13 +787,13 @@ class ManageGrades(ctk.CTkFrame):
             cur.execute(
                 f"""
                 SELECT b.batchID, b.batchLabel, b.schedule, b.level,
-                       s.subjectName
+                       s.subjCode
                 FROM BATCH b
                 JOIN SUBJECT s ON s.subjectID = b.subjectID
                 WHERE b.isActive = 1
                   AND b.level = ?
                   {tutor_filter}
-                ORDER BY s.subjectName, b.batchLabel
+                ORDER BY s.subjCode, b.batchLabel
                 """,
                 tuple(params),
             )
@@ -465,14 +802,14 @@ class ManageGrades(ctk.CTkFrame):
 
             values = []
             for r in rows:
-                disp = f"{r['subjectName']} — Batch {r['batchLabel']} — {r['schedule']}"
+                disp = f"{r['subjCode']} — Batch {r['batchLabel']} — {r['schedule']}"
                 values.append(disp)
                 self._batch_display_to_row[disp] = {
                     "batchID": r["batchID"],
                     "batchLabel": r["batchLabel"],
                     "schedule": r["schedule"],
                     "level": r["level"],
-                    "subjectName": r["subjectName"],
+                    "subjCode": r["subjCode"],
                     "term": term if term else "Term 1",
                 }
 
@@ -587,8 +924,8 @@ class ManageGrades(ctk.CTkFrame):
             cursor.execute("""
                 SELECT r.registrationID, r.studentID, r.learnerID,
                        s.studLname, s.studFname, s.studMname,
-                       r.level, r.term, d.batchID, b.batchLabel, sub.subjectName,
-                       (sub.subjectName || ' — Batch ' || b.batchLabel || ' — ' || b.schedule) AS batchDisplay
+                       r.level, r.term, d.batchID, b.batchLabel, sub.subjCode,
+                       ('Batch ' || b.batchLabel || ' | ' || b.schedule) AS batchDisplay
                 FROM REGISTRATION_DETAIL d
                 JOIN REGISTRATION r ON d.registrationID = r.registrationID
                 JOIN STUDENT s ON r.studentID = s.studentID
@@ -611,7 +948,7 @@ class ManageGrades(ctk.CTkFrame):
                     mname = (f" {r['studMname'][0]}." if r['studMname'] else "")
                     lbl = (f" {r['studFname']}{mname} {r['studLname']}"
                            f"  (Learner ID: {r['learnerID']}"
-                           f" | {r['subjectName']} - Batch {r['batchLabel']})")
+                           f" | {r['subjCode']} - Batch {r['batchLabel']})")  
                     self.class_suggest_lbox.insert(tk.END, lbl)
                 self.class_suggest_lbox.config(height=min(len(rows), 6))
                 self.class_suggest_frame.pack(fill="x",
@@ -647,8 +984,21 @@ class ManageGrades(ctk.CTkFrame):
         
         # 2. Fetch/populate batches for level and select the student's batch
         self.load_batches_for_filters()
-        self.section_combo.set(batch_display)
-        self.on_batch_changed(batch_display)
+        short_disp = ""
+        matched_batch = None
+        for key, val in self._batch_display_to_row.items():
+            if val.get("subjCode") == row["subjCode"] and val.get("batchLabel") == row["batchLabel"]:
+                short_disp = f"Batch {val['batchLabel']} | {val['schedule']}"
+                matched_batch = val
+                self._selected_subject_code = row["subjCode"]
+                self.subject_combo_g.set(row["subjCode"])
+                break
+
+        if short_disp:
+            self._selected_batch = matched_batch
+            self.section_combo.set(short_disp)
+        else:
+            self.section_combo.set("")
 
         # 3. Load students for this batch
         self.load_students()
@@ -786,11 +1136,11 @@ class ManageGrades(ctk.CTkFrame):
         subjects_data_for_pdf = []
         try:
             cursor.execute("""
-                SELECT d.detailID, sub.subjectID, sub.subjectName
+                SELECT d.detailID, sub.subjectID, sub.subjCode
                 FROM REGISTRATION_DETAIL d
                 JOIN SUBJECT sub ON d.subjectID = sub.subjectID
                 WHERE d.registrationID = ?
-                ORDER BY sub.subjectName
+                ORDER BY sub.subjCode
             """, (r['registrationID'],))
             subjects = cursor.fetchall()
 
@@ -806,7 +1156,7 @@ class ManageGrades(ctk.CTkFrame):
                 row_frame.columnconfigure(2, weight=1, uniform="rc_col")
                 row_frame.columnconfigure(3, weight=2, uniform="rc_col")
 
-                tk.Label(row_frame, text=sub['subjectName'],
+                tk.Label(row_frame, text=sub['subjCode'],
                          font=("Inter", 11, "bold"),
                          fg="#1e293b", bg=row_bg, anchor="w"
                          ).grid(row=0, column=0, sticky="w", padx=10, pady=8)
@@ -847,7 +1197,7 @@ class ManageGrades(ctk.CTkFrame):
                          ).grid(row=0, column=3, pady=8, sticky="ew")
 
                 subjects_data_for_pdf.append({
-                    'subjectName': sub['subjectName'],
+                    'subjCode': sub['subjCode'],
                     'numeric':     numeric_str,
                     'letter':      letter,
                     'description': desc,
@@ -937,7 +1287,18 @@ class ManageGrades(ctk.CTkFrame):
         if not grade or not batch_disp or not term:
             return
  
-        batch_row = self._batch_display_to_row.get(batch_disp)
+        batch_row = self._selected_batch
+        if not batch_row:
+            for val in self._batch_display_to_row.values():
+                short_fmt = f"Batch {val.get('batchLabel')} | {val.get('schedule')}"
+                if short_fmt == batch_disp:
+                    if self._selected_subject_code and val.get("subjCode") == self._selected_subject_code:
+                        batch_row = val
+                        break
+                    elif not self._selected_subject_code:
+                        batch_row = val
+                        break
+
         if not batch_row:
             messagebox.showwarning("Warning", "Please select a valid batch.")
             return
@@ -959,7 +1320,7 @@ class ManageGrades(ctk.CTkFrame):
             cursor.execute("""
                 SELECT r.registrationID, r.studentID, r.learnerID,
                        s.studLname, s.studFname, s.studMname,
-                       d.detailID, sub.subjectID, sub.subjectName,
+                       d.detailID, sub.subjectID, sub.subjCode,
                        g.gradeValue, g.letterGrade, g.gradeDesc
                 FROM REGISTRATION r
                 JOIN STUDENT s ON r.studentID = s.studentID
@@ -969,7 +1330,7 @@ class ManageGrades(ctk.CTkFrame):
                                   AND g.period = 'Overall'
                 WHERE r.level = ? AND d.batchID = ?
                   AND r.term = ? AND r.regStatus = 'Active' AND d.enrollStatus = 'Active'
-                ORDER BY s.studLname, s.studFname, sub.subjectName
+                ORDER BY s.studLname, s.studFname, sub.subjCode
             """, (grade, batch_id, term))
             rows = cursor.fetchall()
             conn.close()
@@ -1005,7 +1366,7 @@ class ManageGrades(ctk.CTkFrame):
                     students_map[sid]['subjects'][did] = {
                         'detailID':    did,
                         'subjectID':   row['subjectID'],
-                        'subjectName': row['subjectName'],
+                        'subjCode':    row['subjCode'],
                         'gradeValue':  row['gradeValue'],
                         'letterGrade': row['letterGrade'],
                         'gradeDesc':   row['gradeDesc'],
@@ -1021,7 +1382,7 @@ class ManageGrades(ctk.CTkFrame):
                     s_data = students_map[sid]
                     s_data['subjects'] = sorted(
                         s_data['subjects'].values(),
-                        key=lambda x: x['subjectName'])
+                        key=lambda x: x['subjCode'])
                     students_list.append(s_data)
 
             headers = ["SUBJECT NAME", "NUMERIC GRADE", "LETTER GRADE", "DESCRIPTION"]
@@ -1089,7 +1450,7 @@ class ManageGrades(ctk.CTkFrame):
                     row_frame.columnconfigure(2, weight=1, uniform="grade_col")
                     row_frame.columnconfigure(3, weight=2, uniform="grade_col")
 
-                    tk.Label(row_frame, text=sub['subjectName'],
+                    tk.Label(row_frame, text=sub['subjCode'],
                              font=("Inter", 11, "bold"),
                              fg="#1e293b", bg=row_bg, anchor="w"
                              ).grid(row=0, column=0, sticky="w", padx=10, pady=6)
@@ -1143,7 +1504,7 @@ class ManageGrades(ctk.CTkFrame):
 
                     student_subjects_data.append({
                         "subjectID":    sub['subjectID'],
-                        "subjectName":  sub['subjectName'],
+                        "subjCode":     sub['subjCode'],
                         "detailID":     sub['detailID'],
                         "entry":        ent,
                         "letter_label": lbl_letter,
@@ -1289,7 +1650,7 @@ class ManageGrades(ctk.CTkFrame):
         term       = self.term_combo.get()
 
         batch_row = self._batch_display_to_row.get(batch_disp)
-        subject_name = batch_row.get("subjectName") if batch_row else "Grade_Sheet"
+        subject_name = batch_row.get("subjCode") if batch_row else "Grade_Sheet"
         clean_subj_name = subject_name.replace(' ', '_')
 
         initial_file = (f"Grade_Sheet_{grade_lvl.replace(' ', '_')}"
@@ -1322,7 +1683,7 @@ class ManageGrades(ctk.CTkFrame):
                         letter  = sub['letter_label'].cget("text")
                         desc    = sub['desc_label'].cget("text")
                         subjects_list.append({
-                            'subjectName': sub['subjectName'],
+                            'subjCode':    sub['subjCode'],
                             'numeric':     val_str if val_str else "—",
                             'letter':      letter,
                             'description': desc,
@@ -1357,7 +1718,7 @@ class ManageGrades(ctk.CTkFrame):
             conn = database.get_connection()
             cursor = conn.cursor()
             cursor.execute("""
-                SELECT studentID, studLname, studFname, studMname, gender, dob, address, studContactNo, studEmail, level
+                SELECT studentID, studLname, studFname, studMname, gender, dob, address, studContactInfo, level
                 FROM STUDENT WHERE studentID = ?
             """, (student_id,))
             student = cursor.fetchone()
@@ -1370,7 +1731,7 @@ class ManageGrades(ctk.CTkFrame):
                 reg = cursor.fetchone()
                 learner_id = reg['learnerID'] if reg else "N/A"
             cursor.execute("""
-                SELECT parName, parContactNo, parEmail, relationship
+                SELECT parName, parContactInfo, relationship
                 FROM PARENT WHERE studentID = ?
             """, (student_id,))
             parent = cursor.fetchone()
@@ -1445,8 +1806,7 @@ class ManageGrades(ctk.CTkFrame):
         add_row(stud_inner, grid_s, 2, "Grade Level", student['level'] or "Unassigned")
         add_row(stud_inner, grid_s, 3, "Gender", student['gender'])
         add_row(stud_inner, grid_s, 4, "Date of Birth", student['dob'])
-        add_row(stud_inner, grid_s, 5, "Contact No", student['studContactNo'] or "\u2014")
-        add_row(stud_inner, grid_s, 6, "Email Address", student['studEmail'] or "\u2014")
+        add_row(stud_inner, grid_s, 5, "Contact Information", student['studContactInfo'] or "\u2014")
         addr_f = ctk.CTkFrame(stud_inner, fg_color="transparent")
         addr_f.pack(fill="x", pady=(8, 0), padx=5)
         ctk.CTkLabel(addr_f, text="Full Address:",
@@ -1464,8 +1824,7 @@ class ManageGrades(ctk.CTkFrame):
             grid_p.columnconfigure(1, weight=1)
             add_row(par_inner, grid_p, 0, "Parent Name", parent['parName'])
             add_row(par_inner, grid_p, 1, "Relationship", parent['relationship'])
-            add_row(par_inner, grid_p, 2, "Contact No", parent['parContactNo'] or "\u2014")
-            add_row(par_inner, grid_p, 3, "Email Address", parent['parEmail'] or "\u2014")
+            add_row(par_inner, grid_p, 2, "Contact Information", parent['parContactInfo'] or "\u2014")
         else:
             ctk.CTkLabel(par_inner,
                          text="No parent/guardian information found.",
