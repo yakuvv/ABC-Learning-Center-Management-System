@@ -72,6 +72,69 @@ def _ensure_grade_columns(conn):
     conn.commit()
 
 
+def _ensure_parent_contact_info_column(conn):
+    """Merge parContactNo and parEmail into a single parContactInfo TEXT column."""
+    table = conn.execute(
+        "SELECT 1 FROM sqlite_master WHERE type='table' AND name='PARENT'"
+    ).fetchone()
+    if not table:
+        return
+    cols = [row[1] for row in conn.execute("PRAGMA table_info(PARENT)")]
+    if "parContactInfo" not in cols:
+        conn.execute("ALTER TABLE PARENT ADD COLUMN parContactInfo TEXT")
+        # Migrate existing data: combine parContactNo and parEmail into one field
+        conn.execute("""
+            UPDATE PARENT SET parContactInfo =
+            CASE
+                WHEN parContactNo IS NOT NULL AND parEmail IS NOT NULL
+                    THEN parContactNo || ' / ' || parEmail
+                WHEN parContactNo IS NOT NULL THEN parContactNo
+                WHEN parEmail IS NOT NULL THEN parEmail
+                ELSE NULL
+            END
+            WHERE parContactInfo IS NULL
+        """)
+    conn.commit()
+
+
+def _ensure_student_contact_info_column(conn):
+    """Merge studContactNo and studEmail into a single studContactInfo TEXT column."""
+    table = conn.execute(
+        "SELECT 1 FROM sqlite_master WHERE type='table' AND name='STUDENT'"
+    ).fetchone()
+    if not table:
+        return
+    cols = [row[1] for row in conn.execute("PRAGMA table_info(STUDENT)")]
+    if "studContactInfo" not in cols:
+        conn.execute("ALTER TABLE STUDENT ADD COLUMN studContactInfo TEXT")
+        # Migrate existing data: combine studContactNo and studEmail into one field
+        conn.execute("""
+            UPDATE STUDENT SET studContactInfo =
+            CASE
+                WHEN studContactNo IS NOT NULL AND studEmail IS NOT NULL
+                    THEN studContactNo || ' / ' || studEmail
+                WHEN studContactNo IS NOT NULL THEN studContactNo
+                WHEN studEmail IS NOT NULL THEN studEmail
+                ELSE NULL
+            END
+            WHERE studContactInfo IS NULL
+        """)
+    conn.commit()
+
+
+def _ensure_student_program_column(conn):
+    """Ensure the program column exists in the STUDENT table."""
+    table = conn.execute(
+        "SELECT 1 FROM sqlite_master WHERE type='table' AND name='STUDENT'"
+    ).fetchone()
+    if not table:
+        return
+    cols = [row[1] for row in conn.execute("PRAGMA table_info(STUDENT)")]
+    if "program" not in cols:
+        conn.execute("ALTER TABLE STUDENT ADD COLUMN program TEXT")
+    conn.commit()
+
+
 def _ensure_pricing_columns(conn):
     """Add pricePerTerm / feeAmount and backfill from grade-level pricing."""
     if not conn.execute(
@@ -127,15 +190,23 @@ def _ensure_pricing_columns(conn):
         )
     conn.commit()
 
+_migrations_done = False
+
 
 def get_connection():
+    global _migrations_done
     conn = sqlite3.connect(DB_NAME)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA foreign_keys = ON")
-    _ensure_attendance_time_column(conn)
-    _ensure_pricing_columns(conn)
-    _ensure_payment_time_column(conn)
-    _ensure_grade_columns(conn)
+    if not _migrations_done:
+        _ensure_attendance_time_column(conn)
+        _ensure_pricing_columns(conn)
+        _ensure_payment_time_column(conn)
+        _ensure_grade_columns(conn)
+        _ensure_parent_contact_info_column(conn)
+        _ensure_student_contact_info_column(conn)
+        _ensure_student_program_column(conn)
+        _migrations_done = True
     return conn
 
 
@@ -201,8 +272,7 @@ def init_database():
         gender TEXT NOT NULL CHECK(gender IN ('M','F')),
         dob DATE NOT NULL,
         address TEXT,
-        studContactNo TEXT,
-        studEmail TEXT UNIQUE,
+        studContactInfo TEXT,
         level TEXT NOT NULL,
         program TEXT
     )''')
@@ -212,8 +282,7 @@ def init_database():
         parentID INTEGER PRIMARY KEY AUTOINCREMENT,
         studentID INTEGER NOT NULL,
         parName TEXT NOT NULL,
-        parContactNo TEXT,
-        parEmail TEXT,
+        parContactInfo TEXT,
         relationship TEXT NOT NULL,
         FOREIGN KEY (studentID) REFERENCES STUDENT(studentID) ON DELETE CASCADE
     )''')
@@ -223,8 +292,6 @@ def init_database():
         staffID INTEGER PRIMARY KEY AUTOINCREMENT,
         staffFname TEXT NOT NULL,
         staffLname TEXT NOT NULL,
-        position TEXT NOT NULL,
-        staffContactNo TEXT,
         email TEXT UNIQUE NOT NULL,
         password TEXT NOT NULL
     )''')
@@ -234,20 +301,17 @@ def init_database():
         tutorID INTEGER PRIMARY KEY AUTOINCREMENT,
         tutorFname TEXT NOT NULL,
         tutorLname TEXT NOT NULL,
-        tutorContactNo TEXT,
         tutorEmail TEXT UNIQUE NOT NULL,
-        password TEXT NOT NULL,
-        specialization TEXT
+        password TEXT NOT NULL
     )''')
 
     cursor.execute('''
     CREATE TABLE IF NOT EXISTS SUBJECT (
         subjectID INTEGER PRIMARY KEY AUTOINCREMENT,
+        subjCode TEXT NOT NULL,
         subjectName TEXT NOT NULL,
         description TEXT,
         level TEXT NOT NULL,
-        program TEXT,
-        termType TEXT,
         pricePerTerm REAL,
         isActive INTEGER DEFAULT 1
     )''')
