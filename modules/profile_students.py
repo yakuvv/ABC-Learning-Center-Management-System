@@ -161,7 +161,7 @@ class ProfileStudents(ctk.CTkFrame):
         split_card_frame.pack(fill="x", pady=(0, 15))
 
         #Left Card
-        left_card = ctk.CTkFrame(split_card_frame, fg_color="#ffffff", corner_radius=16, border_width=1, border_color="#cbd5e1", height=160)
+        left_card = ctk.CTkFrame(split_card_frame, fg_color="#ffffff", corner_radius=16, border_width=1, border_color="#cbd5e1", height=200)
         left_card.pack(side="left", fill="x", expand=True, padx=(0, 15))
         left_card.pack_propagate(False)
 
@@ -184,7 +184,7 @@ class ProfileStudents(ctk.CTkFrame):
         self.mname.pack(fill="x", pady=(4, 0))
 
         #Right Card 
-        right_card = ctk.CTkFrame(split_card_frame, fg_color="#ffffff", corner_radius=16, border_width=1, border_color="#cbd5e1", height=160)
+        right_card = ctk.CTkFrame(split_card_frame, fg_color="#ffffff", corner_radius=16, border_width=1, border_color="#cbd5e1", height=200)
         right_card.pack(side="right", fill="x", expand=True, padx=(15, 0))
         right_card.pack_propagate(False)
 
@@ -202,8 +202,7 @@ class ProfileStudents(ctk.CTkFrame):
         # Gender dropdown (ModernCombo — same design as other modules)
         gender_wrap = ctk.CTkFrame(meta_row, fg_color="transparent")
         gender_wrap.pack(side="left", padx=(0, 5))
-        self.gender_entry = ModernCombo(gender_wrap, values=["M", "F"], height=35, width=120)
-        self.gender_entry.set("F")
+        self.gender_entry = ModernCombo(gender_wrap, values=["M", "F"], height=35, width=120, placeholder_text="Gender")
         self.gender_entry.pack(fill="x")
         self._add_combo_underline(gender_wrap, self.gender_entry)
 
@@ -214,12 +213,16 @@ class ProfileStudents(ctk.CTkFrame):
         self.dob.pack(fill="x")
         self._add_combo_underline(dob_wrap, self.dob)
 
-        self.email = ModernEntry(inner_r, placeholder_text="Email Address",
-                                 height=32, font=ctk.CTkFont(family="Inter", size=13))
-        self.email.pack(fill="x", pady=(4, 0))
-        self.contact = ModernEntry(inner_r, placeholder_text="Contact Number",
-                                   height=32, font=ctk.CTkFont(family="Inter", size=13))
-        self.contact.pack(fill="x", pady=(4, 0))
+        self.stud_contact_info = ModernEntry(inner_r, placeholder_text="Contact Information (Phone No. or Email)",
+                                             height=32, font=ctk.CTkFont(family="Inter", size=13))
+        self.stud_contact_info.pack(fill="x", pady=(4, 0))
+
+        # Level dropdown
+        level_wrap = ctk.CTkFrame(inner_r, fg_color="transparent")
+        level_wrap.pack(fill="x", pady=(4, 0))
+        self.level_entry = ModernCombo(level_wrap, values=[f"Grade {i}" for i in range(1, 13)], height=35, placeholder_text="Grade Level")
+        self.level_entry.pack(fill="x")
+        self._add_combo_underline(level_wrap, self.level_entry)
 
         #Address
         address_card = ctk.CTkFrame(self.workspace_canvas, fg_color="#ffffff", corner_radius=16, border_width=1, border_color="#cbd5e1", height=60)
@@ -255,9 +258,9 @@ class ProfileStudents(ctk.CTkFrame):
         self.par_name = ModernEntry(inner_p, placeholder_text="Parent/Guardian Full Name",
                                     height=32, font=ctk.CTkFont(family="Inter", size=13))
         self.par_name.pack(fill="x", pady=(4, 0))
-        self.par_contact = ModernEntry(inner_p, placeholder_text="Parent/Guardian Contact Information",
-                                       height=32, font=ctk.CTkFont(family="Inter", size=13))
-        self.par_contact.pack(fill="x", pady=(4, 0))
+        self.par_contact_info = ModernEntry(inner_p, placeholder_text="Contact Information (Phone No. or Email)",
+                                            height=32, font=ctk.CTkFont(family="Inter", size=13))
+        self.par_contact_info.pack(fill="x", pady=(4, 0))
         self.relationship = ModernEntry(inner_p, placeholder_text="Relationship (Mother, Father, etc.)",
                                         height=32, font=ctk.CTkFont(family="Inter", size=13))
         self.relationship.pack(fill="x", pady=(4, 0))
@@ -457,7 +460,7 @@ class ProfileStudents(ctk.CTkFrame):
         self.tree_frame.pack(fill="both", expand=True, padx=15, pady=12)
 
         import tkinter.ttk as ttk
-        columns = ("#", "Last Name", "First Name", "Middle Name", "Gender", "Date of Birth", "Level", "Contact No", "Email")
+        columns = ("#", "Last Name", "First Name", "Middle Name", "Gender", "Date of Birth", "Level", "Contact Information")
 
         # Set modern theme and style
         style = ttk.Style()
@@ -484,7 +487,7 @@ class ProfileStudents(ctk.CTkFrame):
         self.tree.tag_configure("evenrow", background="#f8fafc")
         self.tree.tag_configure("oddrow", background="#ffffff")
 
-        col_widths = [40, 130, 130, 100, 70, 100, 120, 120, 160]
+        col_widths = [40, 130, 130, 100, 70, 100, 120, 280]
         for col, width in zip(columns, col_widths):
             self.tree.heading(col, text=col)
             self.tree.column(col, width=width, anchor="center" if col == "#" else "center")
@@ -508,7 +511,7 @@ class ProfileStudents(ctk.CTkFrame):
                 idx + 1,
                 row['studLname'], row['studFname'], row['studMname'] or "—",
                 row['gender'], row['dob'], row['level'] or "Unassigned",
-                row['studContactNo'] or "—", row['studEmail'] or "—",
+                row['studContactInfo'] or "—",
             ), tags=(tag,))
 
     def on_student_double_click(self, event):
@@ -526,14 +529,14 @@ class ProfileStudents(ctk.CTkFrame):
             conn = database.get_connection()
             cursor = conn.cursor()
             cursor.execute("""
-                SELECT studentID, studLname, studFname, studMname, gender, dob, address, studContactNo, studEmail, level
+                SELECT studentID, studLname, studFname, studMname, gender, dob, address, studContactInfo, level
                 FROM STUDENT
                 WHERE studentID = ?
             """, (student_id,))
             student = cursor.fetchone()
 
             cursor.execute("""
-                SELECT parName, parContactNo, parEmail, relationship
+                SELECT parName, parContactInfo, relationship
                 FROM PARENT
                 WHERE studentID = ?
             """, (student_id,))
@@ -611,8 +614,7 @@ class ProfileStudents(ctk.CTkFrame):
         add_info_row(grid_s, 2, "Grade Level", student['level'] or "Unassigned")
         add_info_row(grid_s, 3, "Gender", student['gender'])
         add_info_row(grid_s, 4, "Date of Birth", student['dob'])
-        add_info_row(grid_s, 5, "Contact No", student['studContactNo'] or "—")
-        add_info_row(grid_s, 6, "Email Address", student['studEmail'] or "—")
+        add_info_row(grid_s, 5, "Contact Information", student['studContactInfo'] or "—")
 
         addr_frame = ctk.CTkFrame(student_inner, fg_color="transparent")
         addr_frame.pack(fill="x", pady=(8, 0), padx=5)
@@ -629,8 +631,7 @@ class ProfileStudents(ctk.CTkFrame):
 
             add_info_row(grid_p, 0, "Parent Name", parent['parName'])
             add_info_row(grid_p, 1, "Relationship", parent['relationship'])
-            add_info_row(grid_p, 2, "Contact No", parent['parContactNo'] or "—")
-            add_info_row(grid_p, 3, "Email Address", parent['parEmail'] or "—")
+            add_info_row(grid_p, 2, "Contact Information", parent['parContactInfo'] or "—")
         else:
             ctk.CTkLabel(parent_inner, text="No parent/guardian information found.", font=ctk.CTkFont(family="Inter", size=12, italic=True), text_color="#ef4444").pack(anchor="w", pady=5)
 
@@ -649,7 +650,7 @@ class ProfileStudents(ctk.CTkFrame):
             conn = database.get_connection()
             cursor = conn.cursor()
             cursor.execute("""
-                SELECT studentID, studLname, studFname, studMname, gender, dob, level, studContactNo, studEmail
+                SELECT studentID, studLname, studFname, studMname, gender, dob, level, studContactInfo
                 FROM STUDENT
                 ORDER BY studentID ASC
             """)
@@ -670,7 +671,7 @@ class ProfileStudents(ctk.CTkFrame):
             conn = database.get_connection()
             cursor = conn.cursor()
             query = """
-                SELECT studentID, studLname, studFname, studMname, gender, dob, level, studContactNo, studEmail
+                SELECT studentID, studLname, studFname, studMname, gender, dob, level, studContactInfo
                 FROM STUDENT
                 WHERE studentID = ? 
                    OR studLname LIKE ? 
@@ -698,18 +699,18 @@ class ProfileStudents(ctk.CTkFrame):
             cursor = conn.cursor()
 
             cursor.execute('''
-                INSERT INTO STUDENT (studLname, studFname, studMname, gender, dob, address, studContactNo, studEmail, level)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'Unassigned')
+                INSERT INTO STUDENT (studLname, studFname, studMname, gender, dob, address, studContactInfo, level)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             ''', (self.lname.get(), self.fname.get(), self.mname.get(),
                   self.gender_entry.get(), self.dob.get(), self.address.get(),
-                  self.contact.get(), self.email.get()))
+                  self.stud_contact_info.get(), self.level_entry.get()))
 
             student_id = cursor.lastrowid
 
             cursor.execute('''
-                INSERT INTO PARENT (studentID, parName, parContactNo, relationship)
+                INSERT INTO PARENT (studentID, parName, parContactInfo, relationship)
                 VALUES (?, ?, ?, ?)
-            ''', (student_id, self.par_name.get(), self.par_contact.get(), self.relationship.get()))
+            ''', (student_id, self.par_name.get(), self.par_contact_info.get(), self.relationship.get()))
 
             conn.commit()
             conn.close()
@@ -721,10 +722,12 @@ class ProfileStudents(ctk.CTkFrame):
             messagebox.showerror("Error", f"Failed to save student data: {str(e)}")
 
     def clear_fields(self):
-        self.gender_entry.set("F")
+        self.gender_entry.set("Gender")
+        self.level_entry.set("Grade Level")
 
         for entry in [self.fname, self.lname, self.mname, self.address,
-                      self.contact, self.email, self.par_name, self.par_contact, self.relationship]:
+                      self.stud_contact_info, self.par_name, self.par_contact_info,
+                      self.relationship]:
             try:
                 entry.delete(0, 'end')
             except Exception:
