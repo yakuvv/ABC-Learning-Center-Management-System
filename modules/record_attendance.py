@@ -4,6 +4,19 @@ import database
 from datetime import datetime
 from utils.modern_combo import ModernCombo
 from utils.term_options import apply_term_combo_for_level
+from utils.term_options import apply_term_combo_for_level
+
+
+class BatchPickerCombo(ModernCombo):
+    def __init__(self, master, on_open_popup, **kwargs):
+        kwargs.setdefault("values", [""])
+        super().__init__(master, **kwargs)
+        self._on_open_popup = on_open_popup
+        self.set("")
+
+    def _open_dropdown_menu(self):
+        if self._on_open_popup:
+            self._on_open_popup()
 
 
 class AttendanceSavedPopup(ctk.CTkToplevel):
@@ -97,8 +110,10 @@ class RecordAttendance(ctk.CTkFrame):
         self.attendance_vars = {}
         self.attendance_times = {}
         self.roster_rows = []          # list[dict] for current roster
-        self._batch_display_to_row = {}  # display -> {batchID, level, subjectName, batchLabel, schedule}
+        self._batch_display_to_row = {}  # display -> {batchID, level, subjCode, batchLabel, schedule}
         self._selected_batch = None    # dict from _batch_display_to_row
+        self._selected_subject_code = None  # subjCode chosen via Subject picker
+        self._selected_history_subject_code = None # history subject chosen
         self._h_batch_display_to_row = {}  # history batch mapping (display -> {batchID, ...})
         self._last_record_filters = {}  # saved filters from Record tab (for History tab sync)
         self._history_stats_frame = None
@@ -107,6 +122,21 @@ class RecordAttendance(ctk.CTkFrame):
 
     def _combo(self, parent, values, **kwargs):
         return ModernCombo(parent, values=values, **kwargs)
+
+    def _batch_combo(self, parent, is_history=False, **kwargs):
+        def open_popup():
+            self.open_batch_popup(is_history)
+        return BatchPickerCombo(parent, on_open_popup=open_popup, **kwargs)
+
+    def _subject_combo(self, parent, **kwargs):
+        def open_popup():
+            self.open_subject_popup()
+        return BatchPickerCombo(parent, on_open_popup=open_popup, **kwargs)
+
+    def _subject_combo_history(self, parent, **kwargs):
+        def open_popup():
+            self.open_subject_popup_history()
+        return BatchPickerCombo(parent, on_open_popup=open_popup, **kwargs)
 
     def _card_frame(self, parent, height=None):
         kw = {"height": height} if height else {}
@@ -227,12 +257,20 @@ class RecordAttendance(ctk.CTkFrame):
         self.term_combo = self._combo(term_inner, [], command=self.on_term_changed)
         self.term_combo.pack(fill="x")
 
+        # SUBJECT picker card
+        self.subject_lbl = section_label(left_panel, "SUBJECT", 4)
+        self.subject_card, subject_inner = self._card_frame(left_panel, height=50)
+        self.subject_card.grid(row=5, column=0, sticky="ew")
+        self.subject_card.pack_propagate(False)
+        self.subject_combo = self._subject_combo(subject_inner)
+        self.subject_combo.pack(fill="x")
+
         # BATCH Dropdown (batch-first attendance)
-        self.batch_lbl = section_label(left_panel, "BATCH", 4)
+        self.batch_lbl = section_label(left_panel, "BATCH", 6)
         self.batch_card, batch_inner = self._card_frame(left_panel, height=50)
-        self.batch_card.grid(row=5, column=0, sticky="ew")
+        self.batch_card.grid(row=7, column=0, sticky="ew")
         self.batch_card.pack_propagate(False)
-        self.batch_combo = self._combo(batch_inner, [], command=self.on_batch_changed)
+        self.batch_combo = self._batch_combo(batch_inner, is_history=False, command=self.on_batch_changed)
         self.batch_combo.pack(fill="x")
 
         # OK button trigger
@@ -241,12 +279,12 @@ class RecordAttendance(ctk.CTkFrame):
                                     height=40, corner_radius=8,
                                     fg_color="#122aff", hover_color="#0b1eb3", text_color="#ffffff",
                                     command=self.on_ok_clicked)
-        self.ok_btn.grid(row=6, column=0, sticky="ew", pady=(15, 0))
+        self.ok_btn.grid(row=8, column=0, sticky="ew", pady=(15, 0))
 
         # CLASS DETAILS Card
-        self.details_lbl = section_label(left_panel, "CLASS DETAILS", 7)
+        self.details_lbl = section_label(left_panel, "CLASS DETAILS", 9)
         self.details_card, self.details_inner = self._card_frame(left_panel)
-        self.details_card.grid(row=8, column=0, sticky="nsew", pady=(0, 5))
+        self.details_card.grid(row=10, column=0, sticky="nsew", pady=(0, 5))
 
         details_frame = ctk.CTkFrame(self.details_inner, fg_color="transparent")
         details_frame.pack(fill="both", expand=True)
@@ -277,7 +315,7 @@ class RecordAttendance(ctk.CTkFrame):
             self.class_detail_labels[label] = val_lbl
 
         left_panel.columnconfigure(0, weight=1)
-        left_panel.rowconfigure(8, weight=1)
+        left_panel.rowconfigure(10, weight=1)
 
         # ── RIGHT PANEL (ROSTER) ─────────────────────────────────────────────
         right_panel = ctk.CTkFrame(split_body, fg_color="transparent")
@@ -349,10 +387,13 @@ class RecordAttendance(ctk.CTkFrame):
         # Initialise fields to Empty and Readonly
         self.class_combo.set("")
         self.term_combo.set("")
+        self.subject_combo.set("")
         self.batch_combo.set("")
-        
+        self._selected_subject_code = None
+
         self.update_combo_style(self.class_combo)
         self.update_combo_style(self.term_combo)
+        self.update_combo_style(self.subject_combo)
         self.update_combo_style(self.batch_combo)
 
         # Render clean initial empty states
@@ -374,11 +415,13 @@ class RecordAttendance(ctk.CTkFrame):
         if not choice:
             self.term_combo.configure(values=[])
             self.term_combo.set("")
-            self.batch_combo.configure(values=[])
+            self.subject_combo.set("")
             self.batch_combo.set("")
             self._batch_display_to_row = {}
             self._selected_batch = None
+            self._selected_subject_code = None
             self.update_combo_style(self.term_combo)
+            self.update_combo_style(self.subject_combo)
             self.update_combo_style(self.batch_combo)
             return
 
@@ -387,18 +430,42 @@ class RecordAttendance(ctk.CTkFrame):
         self.term_combo.set("")
         self._batch_display_to_row = {}
         self._selected_batch = None
-        self.batch_combo.configure(values=[])
+        self._selected_subject_code = None
+        self.subject_combo.set("")
         self.batch_combo.set("")
         self.update_combo_style(self.term_combo)
+        self.update_combo_style(self.subject_combo)
         self.update_combo_style(self.batch_combo)
 
     def on_term_changed(self, choice):
         self.update_combo_style(self.term_combo)
+        # Reset subject and batch when term changes
+        self._selected_subject_code = None
+        self.subject_combo.set("")
+        self.update_combo_style(self.subject_combo)
+        self.batch_combo.set("")
+        self.update_combo_style(self.batch_combo)
         self.load_batches_for_filters()
 
     def on_batch_changed(self, choice):
         self.update_combo_style(self.batch_combo)
-        self._selected_batch = self._batch_display_to_row.get(choice)
+        # If _selected_batch was already set by the popup tile click, keep it
+        if self._selected_batch:
+            existing_short = f"Batch {self._selected_batch.get('batchLabel')} | {self._selected_batch.get('schedule')}"
+            if existing_short == choice and (not self._selected_subject_code or self._selected_batch.get('subjCode') == self._selected_subject_code):
+                return  # already correct, don't overwrite
+        # Fallback: search by short format (e.g. when combo value changed externally)
+        matched = None
+        for val in self._batch_display_to_row.values():
+            short_fmt = f"Batch {val.get('batchLabel')} | {val.get('schedule')}"
+            if short_fmt == choice:
+                if self._selected_subject_code and val.get("subjCode") == self._selected_subject_code:
+                    matched = val
+                    break
+                elif not self._selected_subject_code:
+                    matched = val
+                    break
+        self._selected_batch = matched
 
     def load_batches_for_filters(self):
         """Load batches for (level, term). Tutor accounts only see their own batches."""
@@ -425,13 +492,13 @@ class RecordAttendance(ctk.CTkFrame):
             cur.execute(
                 f"""
                 SELECT b.batchID, b.batchLabel, b.schedule, b.level,
-                       s.subjectName
+                       s.subjCode
                 FROM BATCH b
                 JOIN SUBJECT s ON s.subjectID = b.subjectID
                 WHERE b.isActive = 1
                   AND b.level = ?
                   {tutor_filter}
-                ORDER BY s.subjectName, b.batchLabel
+                ORDER BY s.subjCode, b.batchLabel
                 """,
                 tuple(params),
             )
@@ -440,14 +507,14 @@ class RecordAttendance(ctk.CTkFrame):
 
             values = []
             for r in rows:
-                disp = f"{r['subjectName']} — Batch {r['batchLabel']} — {r['schedule']}"
+                disp = f"{r['subjCode']} — Batch {r['batchLabel']} — {r['schedule']}"
                 values.append(disp)
                 self._batch_display_to_row[disp] = {
                     "batchID": r["batchID"],
                     "batchLabel": r["batchLabel"],
                     "schedule": r["schedule"],
                     "level": r["level"],
-                    "subjectName": r["subjectName"],
+                    "subjCode": r["subjCode"],
                     "term": term,
                 }
 
@@ -483,13 +550,13 @@ class RecordAttendance(ctk.CTkFrame):
 
             cur.execute(
                 f"""
-                SELECT b.batchID, b.batchLabel, b.schedule, s.subjectName
+                SELECT b.batchID, b.batchLabel, b.schedule, s.subjCode
                 FROM BATCH b
                 JOIN SUBJECT s ON s.subjectID = b.subjectID
                 WHERE b.isActive = 1
                   AND b.level = ?
                   {tutor_filter}
-                ORDER BY s.subjectName, b.batchLabel
+                ORDER BY s.subjCode, b.batchLabel
                 """,
                 tuple(params),
             )
@@ -498,13 +565,13 @@ class RecordAttendance(ctk.CTkFrame):
 
             values = []
             for r in rows:
-                disp = f"{r['subjectName']} — Batch {r['batchLabel']} — {r['schedule']}"
+                disp = f"{r['subjCode']} — Batch {r['batchLabel']} — {r['schedule']}"
                 values.append(disp)
                 self._h_batch_display_to_row[disp] = {
                     "batchID": r["batchID"],
                     "batchLabel": r["batchLabel"],
                     "schedule": r["schedule"],
-                    "subjectName": r["subjectName"],
+                    "subjCode": r["subjCode"],
                     "level": level,
                     "term": term,
                 }
@@ -519,20 +586,463 @@ class RecordAttendance(ctk.CTkFrame):
             self.h_batch.set("")
             self.update_combo_style(self.h_batch)
 
+    def open_subject_popup(self):
+        """Open a popup showing all subjects for the selected level."""
+        import tkinter as tk_native
+        level = self.class_combo.get().strip()
+        term = self.term_combo.get().strip()
+
+        if not level:
+            messagebox.showinfo("Select Level", "Please select a Level first.")
+            return
+        if not term:
+            messagebox.showinfo("Select Term", "Please select a Term first.")
+            return
+
+        # Load subjects for selected level
+        try:
+            conn = database.get_connection()
+            cur = conn.cursor()
+            cur.execute("""
+                SELECT DISTINCT s.subjCode, s.subjectName
+                FROM SUBJECT s
+                WHERE s.level = ? AND s.isActive = 1
+                ORDER BY s.subjCode
+            """, (level,))
+            subjects = cur.fetchall()
+            conn.close()
+        except Exception as e:
+            messagebox.showerror("Error", f"Could not load subjects:\n{e}")
+            return
+
+        if not subjects:
+            messagebox.showinfo("No Subjects", f"No subjects found for {level}.")
+            return
+
+        popup = ctk.CTkToplevel(self)
+        popup.title("Select Subject")
+        popup.geometry("900x640")
+        popup.resizable(True, True)
+        popup.minsize(800, 500)
+        popup.configure(fg_color="#e4e4e4")
+        popup.transient(self.winfo_toplevel())
+
+        screen_w = popup.winfo_screenwidth()
+        screen_h = popup.winfo_screenheight()
+        popup.geometry(f"900x640+{(screen_w - 900) // 2}+{(screen_h - 640) // 2}")
+
+        top_bar = ctk.CTkFrame(popup, height=60, fg_color="#15165e", corner_radius=0)
+        top_bar.pack(fill="x", side="top")
+        top_bar.pack_propagate(False)
+        ctk.CTkLabel(top_bar, text=f"SELECT A SUBJECT  —  {level}",
+                     font=ctk.CTkFont(family="Inter", size=16, weight="bold"),
+                     text_color="#ffffff").pack(side="left", padx=20, pady=15)
+
+        scroll_outer = tk_native.Frame(popup, bg="#e4e4e4")
+        scroll_outer.pack(fill="both", expand=True, padx=20, pady=(10, 5))
+
+        canvas = tk_native.Canvas(scroll_outer, bg="#e4e4e4", highlightthickness=0)
+        scrollbar = tk_native.Scrollbar(scroll_outer, orient="vertical", command=canvas.yview)
+        scroll_inner = tk_native.Frame(canvas, bg="#e4e4e4")
+        scroll_inner.bind("<Configure>", lambda e: canvas.configure(scrollregion=canvas.bbox("all")))
+        canvas.create_window((0, 0), window=scroll_inner, anchor="nw", tags="inner")
+        canvas.configure(yscrollcommand=scrollbar.set)
+        canvas.bind("<Configure>", lambda e: canvas.itemconfig("inner", width=e.width))
+        scrollbar.pack(side="right", fill="y")
+        canvas.pack(side="left", fill="both", expand=True)
+
+        def _wheel(event):
+            canvas.yview_scroll(int(-1 * (event.delta / 120)) if event.delta else (-1 if event.num == 4 else 1), "units")
+        canvas.bind_all("<Button-4>", _wheel)
+        canvas.bind_all("<Button-5>", _wheel)
+        popup.bind("<Destroy>", lambda e: (canvas.unbind_all("<Button-4>"), canvas.unbind_all("<Button-5>")))
+
+        # Build subject tiles in 2-col grid
+        tiles_wrap = tk_native.Frame(scroll_inner, bg="#e4e4e4")
+        tiles_wrap.pack(fill="x", padx=4, pady=4)
+        tiles_wrap.columnconfigure(0, weight=1)
+        tiles_wrap.columnconfigure(1, weight=1)
+
+        for idx, subj_row in enumerate(subjects):
+            code = subj_row["subjCode"]
+            name = subj_row["subjectName"]
+            col = idx % 2
+            row = idx // 2
+
+            tile = tk_native.Frame(tiles_wrap, bg="#ffffff", bd=1, relief="solid",
+                                   highlightthickness=1, highlightbackground="#e2e8f0",
+                                   highlightcolor="#122aff")
+            tile.grid(row=row, column=col, sticky="nsew", padx=4, pady=4)
+
+            lbl_code = tk_native.Label(tile, text=code,
+                                       font=("Inter", 12, "bold"), fg="#15165e", bg="#ffffff", anchor="w")
+            lbl_code.pack(fill="x", padx=10, pady=(8, 0))
+
+            lbl_name = tk_native.Label(tile, text=name,
+                                       font=("Inter", 10), fg="#64748b", bg="#ffffff", anchor="w")
+            lbl_name.pack(fill="x", padx=10, pady=(0, 8))
+
+            def on_click(event, c=code):
+                self._selected_subject_code = c
+                self.subject_combo.set(c)
+                self.update_combo_style(self.subject_combo)
+                # Reset batch when subject changes
+                self.batch_combo.set("")
+                self.update_combo_style(self.batch_combo)
+                self._selected_batch = None
+                popup.destroy()
+
+            def on_enter(event, t=tile, l1=lbl_code, l2=lbl_name):
+                t.configure(bg="#eef2ff", highlightbackground="#122aff")
+                l1.configure(bg="#eef2ff")
+                l2.configure(bg="#eef2ff")
+
+            def on_leave(event, t=tile, l1=lbl_code, l2=lbl_name):
+                t.configure(bg="#ffffff", highlightbackground="#e2e8f0")
+                l1.configure(bg="#ffffff")
+                l2.configure(bg="#ffffff")
+
+            for w in (tile, lbl_code, lbl_name):
+                w.bind("<Button-1>", on_click)
+                w.bind("<Enter>", on_enter)
+                w.bind("<Leave>", on_leave)
+                w.configure(cursor="hand2")
+
+        btn_frame = tk_native.Frame(popup, bg="#e4e4e4")
+        btn_frame.pack(fill="x", pady=(5, 12))
+        ctk.CTkButton(btn_frame, text="CLOSE",
+                      font=ctk.CTkFont(family="Inter", size=13, weight="bold"),
+                      fg_color="#374151", hover_color="#1f2937", text_color="#ffffff",
+                      width=160, height=38, corner_radius=8,
+                      command=popup.destroy).pack(anchor="center")
+
+        popup.update_idletasks()
+        try:
+            popup.grab_set()
+        except Exception:
+            pass
+
+    def open_subject_popup_history(self):
+        """Open a popup showing all subjects for the selected history level."""
+        import tkinter as tk_native
+        level = self.h_class.get().strip()
+        term = self.h_term.get().strip()
+
+        if not level:
+            messagebox.showinfo("Select Level", "Please select a Level first.")
+            return
+        if not term:
+            messagebox.showinfo("Select Term", "Please select a Term first.")
+            return
+
+        # Load subjects for selected level
+        try:
+            conn = database.get_connection()
+            cur = conn.cursor()
+            cur.execute("""
+                SELECT DISTINCT s.subjCode, s.subjectName
+                FROM SUBJECT s
+                WHERE s.level = ? AND s.isActive = 1
+                ORDER BY s.subjCode
+            """, (level,))
+            subjects = cur.fetchall()
+            conn.close()
+        except Exception as e:
+            messagebox.showerror("Error", f"Could not load subjects:\n{e}")
+            return
+
+        if not subjects:
+            messagebox.showinfo("No Subjects", f"No subjects found for {level}.")
+            return
+
+        popup = ctk.CTkToplevel(self)
+        popup.title("Select Subject")
+        popup.geometry("900x640")
+        popup.resizable(True, True)
+        popup.minsize(800, 500)
+        popup.configure(fg_color="#e4e4e4")
+        popup.transient(self.winfo_toplevel())
+
+        screen_w = popup.winfo_screenwidth()
+        screen_h = popup.winfo_screenheight()
+        popup.geometry(f"900x640+{(screen_w - 900) // 2}+{(screen_h - 640) // 2}")
+
+        top_bar = ctk.CTkFrame(popup, height=60, fg_color="#15165e", corner_radius=0)
+        top_bar.pack(fill="x", side="top")
+        top_bar.pack_propagate(False)
+        ctk.CTkLabel(top_bar, text=f"SELECT A SUBJECT  —  {level}",
+                     font=ctk.CTkFont(family="Inter", size=16, weight="bold"),
+                     text_color="#ffffff").pack(side="left", padx=20, pady=15)
+
+        scroll_outer = tk_native.Frame(popup, bg="#e4e4e4")
+        scroll_outer.pack(fill="both", expand=True, padx=20, pady=(10, 5))
+
+        canvas = tk_native.Canvas(scroll_outer, bg="#e4e4e4", highlightthickness=0)
+        scrollbar = tk_native.Scrollbar(scroll_outer, orient="vertical", command=canvas.yview)
+        scroll_inner = tk_native.Frame(canvas, bg="#e4e4e4")
+        scroll_inner.bind("<Configure>", lambda e: canvas.configure(scrollregion=canvas.bbox("all")))
+        canvas.create_window((0, 0), window=scroll_inner, anchor="nw", tags="inner")
+        canvas.configure(yscrollcommand=scrollbar.set)
+        canvas.bind("<Configure>", lambda e: canvas.itemconfig("inner", width=e.width))
+        scrollbar.pack(side="right", fill="y")
+        canvas.pack(side="left", fill="both", expand=True)
+
+        def _wheel(event):
+            canvas.yview_scroll(int(-1 * (event.delta / 120)) if event.delta else (-1 if event.num == 4 else 1), "units")
+        canvas.bind_all("<Button-4>", _wheel)
+        canvas.bind_all("<Button-5>", _wheel)
+        popup.bind("<Destroy>", lambda e: (canvas.unbind_all("<Button-4>"), canvas.unbind_all("<Button-5>")))
+
+        # Build subject tiles in 2-col grid
+        tiles_wrap = tk_native.Frame(scroll_inner, bg="#e4e4e4")
+        tiles_wrap.pack(fill="x", padx=4, pady=4)
+        tiles_wrap.columnconfigure(0, weight=1)
+        tiles_wrap.columnconfigure(1, weight=1)
+
+        for idx, subj_row in enumerate(subjects):
+            code = subj_row["subjCode"]
+            name = subj_row["subjectName"]
+            col = idx % 2
+            row = idx // 2
+
+            tile = tk_native.Frame(tiles_wrap, bg="#ffffff", bd=1, relief="solid",
+                                   highlightthickness=1, highlightbackground="#e2e8f0",
+                                   highlightcolor="#122aff")
+            tile.grid(row=row, column=col, sticky="nsew", padx=4, pady=4)
+
+            lbl_code = tk_native.Label(tile, text=code,
+                                       font=("Inter", 12, "bold"), fg="#15165e", bg="#ffffff", anchor="w")
+            lbl_code.pack(fill="x", padx=10, pady=(8, 0))
+
+            lbl_name = tk_native.Label(tile, text=name,
+                                       font=("Inter", 10), fg="#64748b", bg="#ffffff", anchor="w")
+            lbl_name.pack(fill="x", padx=10, pady=(0, 8))
+
+            def on_click(event, c=code):
+                self._selected_history_subject_code = c
+                self.h_subject.set(c)
+                self.update_combo_style(self.h_subject)
+                # Reset history batch when subject changes
+                self.h_batch.set("")
+                self.update_combo_style(self.h_batch)
+                self._selected_history_batch = None
+                popup.destroy()
+
+            def on_enter(event, t=tile, l1=lbl_code, l2=lbl_name):
+                t.configure(bg="#eef2ff", highlightbackground="#122aff")
+                l1.configure(bg="#eef2ff")
+                l2.configure(bg="#eef2ff")
+
+            def on_leave(event, t=tile, l1=lbl_code, l2=lbl_name):
+                t.configure(bg="#ffffff", highlightbackground="#e2e8f0")
+                l1.configure(bg="#ffffff")
+                l2.configure(bg="#ffffff")
+
+            for w in (tile, lbl_code, lbl_name):
+                w.bind("<Button-1>", on_click)
+                w.bind("<Enter>", on_enter)
+                w.bind("<Leave>", on_leave)
+                w.configure(cursor="hand2")
+
+        btn_frame = tk_native.Frame(popup, bg="#e4e4e4")
+        btn_frame.pack(fill="x", pady=(5, 12))
+        close_btn = ctk.CTkButton(btn_frame, text="CLOSE",
+                                  font=ctk.CTkFont(family="Inter", size=13, weight="bold"),
+                                  fg_color="#374151", hover_color="#1f2937", text_color="#ffffff",
+                                  width=160, height=38, corner_radius=8,
+                                  command=popup.destroy)
+        close_btn.pack(anchor="center")
+
+        popup.update_idletasks()
+        try:
+            popup.grab_set()
+        except Exception:
+            pass
+
+    def open_batch_popup(self, is_history=False):
+        import tkinter as tk_native
+        level = self.h_class.get().strip() if is_history else self.class_combo.get().strip()
+        term = self.h_term.get().strip() if is_history else self.term_combo.get().strip()
+
+        if not level or not term:
+            messagebox.showinfo("Select Filters", "Please select Level and Term first.")
+            return
+
+        selected_subj = self._selected_history_subject_code if is_history else self._selected_subject_code
+        if not selected_subj:
+            messagebox.showinfo("Select Subject", "Please select a Subject first.")
+            return
+
+        full_mapping = self._h_batch_display_to_row if is_history else self._batch_display_to_row
+        if not full_mapping:
+            messagebox.showinfo("No Batches", "No active batches found for the selected Level and Term.")
+            return
+
+        # Filter mapping by selected subject
+        batch_mapping = {k: v for k, v in full_mapping.items()
+                         if v.get("subjCode") == selected_subj}
+        if not batch_mapping:
+            messagebox.showinfo("No Batches", f"No batches found for subject '{selected_subj}'.")
+            return
+
+        popup = ctk.CTkToplevel(self)
+        popup.title("Select Batch")
+        popup.geometry("900x640")
+        popup.resizable(True, True)
+        popup.minsize(800, 500)
+        popup.configure(fg_color="#e4e4e4")
+        popup.transient(self.winfo_toplevel())
+
+        # Center popup on screen BEFORE rendering content
+        screen_width = popup.winfo_screenwidth()
+        screen_height = popup.winfo_screenheight()
+        x = (screen_width - 900) // 2
+        y = (screen_height - 640) // 2
+        popup.geometry(f"900x640+{x}+{y}")
+
+        # Top Bar (only heavy widget — just 1 frame + 1 label)
+        top_bar = ctk.CTkFrame(popup, height=60, fg_color="#15165e", corner_radius=0)
+        top_bar.pack(fill="x", side="top")
+        top_bar.pack_propagate(False)
+        ctk.CTkLabel(top_bar, text="SELECT A BATCH",
+                     font=ctk.CTkFont(family="Inter", size=16, weight="bold"),
+                     text_color="#ffffff").pack(side="left", padx=20, pady=15)
+
+        # ── Lightweight scrollable area using plain tkinter ──
+        scroll_outer = tk_native.Frame(popup, bg="#e4e4e4")
+        scroll_outer.pack(fill="both", expand=True, padx=20, pady=(10, 5))
+
+        canvas = tk_native.Canvas(scroll_outer, bg="#e4e4e4", highlightthickness=0)
+        scrollbar = tk_native.Scrollbar(scroll_outer, orient="vertical", command=canvas.yview)
+        scroll_inner = tk_native.Frame(canvas, bg="#e4e4e4")
+
+        scroll_inner.bind("<Configure>", lambda e: canvas.configure(scrollregion=canvas.bbox("all")))
+        canvas.create_window((0, 0), window=scroll_inner, anchor="nw", tags="inner")
+        canvas.configure(yscrollcommand=scrollbar.set)
+
+        # Make scroll_inner fill canvas width
+        def _resize_inner(event):
+            canvas.itemconfig("inner", width=event.width)
+        canvas.bind("<Configure>", _resize_inner)
+
+        scrollbar.pack(side="right", fill="y")
+        canvas.pack(side="left", fill="both", expand=True)
+
+        # Mouse wheel scrolling
+        def _on_mousewheel(event):
+            canvas.yview_scroll(int(-1 * (event.delta / 120)) if event.delta else (-1 if event.num == 4 else 1), "units")
+        canvas.bind_all("<Button-4>", _on_mousewheel)
+        canvas.bind_all("<Button-5>", _on_mousewheel)
+        popup.bind("<Destroy>", lambda e: (canvas.unbind_all("<Button-4>"), canvas.unbind_all("<Button-5>")))
+
+        # Organize by subjCode
+        organized = {}
+        for disp, data in batch_mapping.items():
+            subj = data["subjCode"]
+            if subj not in organized:
+                organized[subj] = []
+            organized[subj].append((disp, data))
+
+        # ── Build tiles with PLAIN tkinter widgets (fast!) ──
+        for subj, batches in organized.items():
+            subj_frame = tk_native.Frame(scroll_inner, bg="#ffffff", bd=1, relief="solid", padx=0, pady=0)
+            subj_frame.pack(fill="x", pady=(0, 10), padx=2)
+
+            # Accent bar + content
+            accent = tk_native.Frame(subj_frame, bg="#15165e", width=5)
+            accent.pack(side="left", fill="y", padx=(8, 0), pady=8)
+
+            inner = tk_native.Frame(subj_frame, bg="#ffffff")
+            inner.pack(fill="both", expand=True, padx=10, pady=8)
+
+            tk_native.Label(inner, text=subj, font=("Inter", 12, "bold"),
+                     fg="#15165e", bg="#ffffff", anchor="w").pack(fill="x", pady=(0, 6))
+
+            tiles_wrap = tk_native.Frame(inner, bg="#ffffff")
+            tiles_wrap.pack(fill="x")
+            tiles_wrap.columnconfigure(0, weight=1)
+            tiles_wrap.columnconfigure(1, weight=1)
+
+            for idx, (disp, data) in enumerate(batches):
+                col = idx % 2
+                row = idx // 2
+
+                tile = tk_native.Frame(tiles_wrap, bg="#f8fafc", bd=1, relief="solid",
+                                highlightthickness=1, highlightbackground="#e2e8f0",
+                                highlightcolor="#122aff")
+                tile.grid(row=row, column=col, sticky="nsew", padx=3, pady=3)
+
+                lbl1 = tk_native.Label(tile, text=f"Batch {data['batchLabel']}",
+                                font=("Inter", 11, "bold"), fg="#1e293b", bg="#f8fafc",
+                                anchor="w")
+                lbl1.pack(fill="x", padx=8, pady=(6, 0))
+
+                lbl2 = tk_native.Label(tile, text=data['schedule'],
+                                font=("Inter", 10), fg="#64748b", bg="#f8fafc",
+                                anchor="w")
+                lbl2.pack(fill="x", padx=8, pady=(0, 6))
+
+                def on_click(event, d=disp, bd=data):
+                    short_disp = f"Batch {bd['batchLabel']} | {bd['schedule']}"
+                    if is_history:
+                        self._selected_history_batch = bd
+                        self.h_batch.set(short_disp)
+                        cmd = self.h_batch.cget("command")
+                        if cmd: cmd(short_disp)
+                    else:
+                        self._selected_batch = bd
+                        self.batch_combo.set(short_disp)
+                        cmd = self.batch_combo.cget("command")
+                        if cmd: cmd(short_disp)
+                    popup.destroy()
+
+                def on_enter(event, t=tile, l1=lbl1, l2=lbl2):
+                    t.configure(bg="#eef2ff", highlightbackground="#122aff")
+                    l1.configure(bg="#eef2ff")
+                    l2.configure(bg="#eef2ff")
+
+                def on_leave(event, t=tile, l1=lbl1, l2=lbl2):
+                    t.configure(bg="#f8fafc", highlightbackground="#e2e8f0")
+                    l1.configure(bg="#f8fafc")
+                    l2.configure(bg="#f8fafc")
+
+                for widget in (tile, lbl1, lbl2):
+                    widget.bind("<Button-1>", on_click)
+                    widget.bind("<Enter>", on_enter)
+                    widget.bind("<Leave>", on_leave)
+                    widget.configure(cursor="hand2")
+
+        # Close Button
+        btn_frame = tk_native.Frame(popup, bg="#e4e4e4")
+        btn_frame.pack(fill="x", pady=(5, 12))
+        close_btn = ctk.CTkButton(btn_frame, text="CLOSE",
+                                  font=ctk.CTkFont(family="Inter", size=13, weight="bold"),
+                                  fg_color="#374151", hover_color="#1f2937", text_color="#ffffff",
+                                  width=160, height=38, corner_radius=8,
+                                  command=popup.destroy)
+        close_btn.pack(anchor="center")
+
+        popup.update_idletasks()
+        try:
+            popup.grab_set()
+        except Exception:
+            pass
+
     def _sync_history_filters_from_record(self):
         """Apply Record Attendance selections to Attendance History automatically."""
         if not self._last_record_filters:
             return
-        if not hasattr(self, "h_class") or not hasattr(self, "h_term") or not hasattr(self, "h_batch"):
+        if not hasattr(self, "h_class") or not hasattr(self, "h_term") or not hasattr(self, "h_batch") or not hasattr(self, "h_subject"):
             return
         if not self._history_stats_frame:
             return
 
         level = self._last_record_filters.get("level")
         term = self._last_record_filters.get("term")
+        subj = self._last_record_filters.get("subject")
         batch_display = self._last_record_filters.get("batch_display")
 
-        if not (level and term and batch_display):
+        if not (level and term and subj and batch_display):
             return
 
         # Ensure dropdown options exist.
@@ -542,16 +1052,36 @@ class RecordAttendance(ctk.CTkFrame):
         self.update_combo_style(self.h_class)
         self.update_combo_style(self.h_term)
 
+        # Subject selection
+        self._selected_history_subject_code = subj
+        self.h_subject.set(subj)
+        self.update_combo_style(self.h_subject)
+
         # Populate history batch dropdown options and select the same one used in Record tab.
         self._load_history_batches(level, term)
-        if batch_display in self._h_batch_display_to_row:
-            self.h_batch.set(batch_display)
+        
+        # Resolve history batch from display format
+        matched_h_disp = ""
+        for key, val in self._h_batch_display_to_row.items():
+            if val.get("batchID") == (self._selected_batch.get("batchID") if self._selected_batch else None):
+                matched_h_disp = key
+                break
+                
+        if matched_h_disp:
+            short_fmt = f"Batch {self._selected_batch.get('batchLabel')} | {self._selected_batch.get('schedule')}"
+            self.h_batch.set(short_fmt)
+            for val in self._h_batch_display_to_row.values():
+                if val.get("batchID") == self._selected_batch.get("batchID"):
+                    self._selected_history_batch = val
+                    break
         else:
             self.h_batch.set("")
+            self._selected_history_batch = None
+            
         self.update_combo_style(self.h_batch)
 
         # Auto-load history results so user doesn't need to search again.
-        self.load_history(level, term, batch_display, self._history_stats_frame, self.hist_tree)
+        self.load_history(level, term, self.h_batch.get(), self._history_stats_frame, self.hist_tree)
 
     def _set_class_details(self, level="—", term="—", subject="—", batch="—", schedule="—", time="—"):
         mapping = {
@@ -592,7 +1122,18 @@ class RecordAttendance(ctk.CTkFrame):
         if not level or not term or not batch_disp:
             messagebox.showwarning("Warning", "Please complete all filters first!")
             return
-        batch_row = self._batch_display_to_row.get(batch_disp)
+        batch_row = self._selected_batch
+        if not batch_row:
+            for val in self._batch_display_to_row.values():
+                short_fmt = f"Batch {val.get('batchLabel')} | {val.get('schedule')}"
+                if short_fmt == batch_disp:
+                    if self._selected_subject_code and val.get("subjCode") == self._selected_subject_code:
+                        batch_row = val
+                        break
+                    elif not self._selected_subject_code:
+                        batch_row = val
+                        break
+
         if not batch_row:
             messagebox.showwarning("Warning", "Please choose a valid batch.")
             return
@@ -601,7 +1142,7 @@ class RecordAttendance(ctk.CTkFrame):
         self._set_class_details(
             level=level,
             term=term,
-            subject=batch_row.get("subjectName"),
+            subject=batch_row.get("subjCode"),
             batch=f"Batch {batch_row.get('batchLabel')}",
             schedule=batch_row.get("schedule"),
             time=mil_time,
@@ -611,6 +1152,7 @@ class RecordAttendance(ctk.CTkFrame):
         self._last_record_filters = {
             "level": level,
             "term": term,
+            "subject": self._selected_subject_code,
             "batch_display": batch_disp,
             "batchID": batch_row.get("batchID"),
         }
@@ -925,12 +1467,20 @@ class RecordAttendance(ctk.CTkFrame):
         self.h_term = self._combo(h_term_inner, [])
         self.h_term.pack(fill="x")
 
+        # SUBJECT
+        section_label(left_panel, "SUBJECT", 4)
+        h_subject_card, h_subject_inner = self._card_frame(left_panel, height=50)
+        h_subject_card.grid(row=5, column=0, sticky="ew")
+        h_subject_card.pack_propagate(False)
+        self.h_subject = self._subject_combo_history(h_subject_inner)
+        self.h_subject.pack(fill="x")
+
         # BATCH
-        section_label(left_panel, "BATCH", 4)
+        section_label(left_panel, "BATCH", 6)
         h_batch_card, h_batch_inner = self._card_frame(left_panel, height=50)
-        h_batch_card.grid(row=5, column=0, sticky="ew")
+        h_batch_card.grid(row=7, column=0, sticky="ew")
         h_batch_card.pack_propagate(False)
-        self.h_batch = self._combo(h_batch_inner, [], command=lambda *_: self.update_combo_style(self.h_batch))
+        self.h_batch = self._batch_combo(h_batch_inner, is_history=True, command=lambda *_: self.update_combo_style(self.h_batch))
         self.h_batch.pack(fill="x")
 
         # SEARCH button
@@ -943,7 +1493,7 @@ class RecordAttendance(ctk.CTkFrame):
                           self.h_term.get(),
                           self.h_batch.get(),
                           stats_frame, tree)
-                      ).grid(row=6, column=0, sticky="ew", pady=(15, 0))
+                      ).grid(row=8, column=0, sticky="ew", pady=(15, 0))
 
         left_panel.columnconfigure(0, weight=1)
 
@@ -953,10 +1503,14 @@ class RecordAttendance(ctk.CTkFrame):
             self.h_term.set("")
             self.update_combo_style(self.h_class)
             self.update_combo_style(self.h_term)
+            self.h_subject.set("")
+            self.update_combo_style(self.h_subject)
+            self._selected_history_subject_code = None
             self._h_batch_display_to_row = {}
             self.h_batch.configure(values=[])
             self.h_batch.set("")
             self.update_combo_style(self.h_batch)
+            self._selected_history_batch = None
 
         def load_h_batches():
             level = self.h_class.get().strip()
@@ -977,13 +1531,13 @@ class RecordAttendance(ctk.CTkFrame):
                     params.append(self.tutor_id)
                 cur.execute(
                     f"""
-                    SELECT b.batchID, b.batchLabel, b.schedule, s.subjectName
+                    SELECT b.batchID, b.batchLabel, b.schedule, s.subjCode
                     FROM BATCH b
                     JOIN SUBJECT s ON s.subjectID = b.subjectID
                     WHERE b.isActive = 1
                       AND b.level = ?
                       {tutor_filter}
-                    ORDER BY s.subjectName, b.batchLabel
+                    ORDER BY s.subjCode, b.batchLabel
                     """,
                     tuple(params),
                 )
@@ -991,13 +1545,13 @@ class RecordAttendance(ctk.CTkFrame):
                 conn.close()
                 values = []
                 for r in rows:
-                    disp = f"{r['subjectName']} — Batch {r['batchLabel']} — {r['schedule']}"
+                    disp = f"{r['subjCode']} — Batch {r['batchLabel']} — {r['schedule']}"
                     values.append(disp)
                     self._h_batch_display_to_row[disp] = {
                         "batchID": r["batchID"],
                         "batchLabel": r["batchLabel"],
                         "schedule": r["schedule"],
-                        "subjectName": r["subjectName"],
+                        "subjCode": r["subjCode"],
                         "level": level,
                         "term": term,
                     }
@@ -1011,12 +1565,23 @@ class RecordAttendance(ctk.CTkFrame):
                 self.h_batch.set("")
                 self.update_combo_style(self.h_batch)
 
+        def on_h_term_changed(choice):
+            self.update_combo_style(self.h_term)
+            self.h_subject.set("")
+            self.update_combo_style(self.h_subject)
+            self._selected_history_subject_code = None
+            self.h_batch.set("")
+            self.update_combo_style(self.h_batch)
+            self._selected_history_batch = None
+            load_h_batches()
+
         self.h_class.configure(command=on_h_class_changed)
-        self.h_term.configure(command=lambda *_: (self.update_combo_style(self.h_term), load_h_batches()))
+        self.h_term.configure(command=on_h_term_changed)
 
         # Render clean initial empty states.
         self.h_class.set("")
         self.h_term.set("")
+        self.h_subject.set("")
         self.h_batch.set("")
 
         # ── RIGHT PANEL ───────────────────────────────────────────────────────
@@ -1118,7 +1683,19 @@ class RecordAttendance(ctk.CTkFrame):
             messagebox.showwarning("Warning", "Please complete all filters first!")
             return
 
-        batch_row = self._h_batch_display_to_row.get(batch_display)
+        batch_row = None
+        if hasattr(self, "_selected_history_batch") and self._selected_history_batch:
+            expected_short = f"Batch {self._selected_history_batch.get('batchLabel')} | {self._selected_history_batch.get('schedule')}"
+            if expected_short == batch_display:
+                batch_row = self._selected_history_batch
+
+        if not batch_row:
+            for val in self._h_batch_display_to_row.values():
+                short_fmt = f"Batch {val.get('batchLabel')} | {val.get('schedule')}"
+                if short_fmt == batch_display:
+                    batch_row = val
+                    break
+
         if not batch_row:
             messagebox.showwarning("Warning", "Please choose a valid batch.")
             return
