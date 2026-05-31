@@ -348,7 +348,7 @@ class ProcessPayment(ctk.CTkFrame):
             self.suggest_lbox.delete(0, tk.END)
             for r in rows:
                 mname = f" {r['studMname'][0]}." if r.get('studMname') else ""
-                lbl = f" {r['studFname']}{mname} {r['studLname']}  (Learner ID: {r['learnerID'] or '—'} | {r['level'] or '—'} - {r['groupName'] or '—'})"
+                lbl = f" {r['studFname']}{mname} {r['studLname']}  (Learner ID: {r['learnerID'] or '—'} | {r['level'] or '—'})"
                 self.suggest_lbox.insert(tk.END, lbl)
             self.suggest_lbox.config(height=min(len(rows), 6))
             self.suggest_frame.pack(fill="x", after=self.search_entry, pady=(4, 0))
@@ -374,13 +374,13 @@ class ProcessPayment(ctk.CTkFrame):
 
         lines = cursor.execute(
             """
-            SELECT s.subjectName, b.batchLabel, b.schedule, rd.enrollStatus,
+            SELECT s.subjCode, b.batchLabel, b.schedule, rd.enrollStatus,
                    COALESCE(rd.feeAmount, s.pricePerTerm, 0) AS feeAmount
             FROM REGISTRATION_DETAIL rd
             JOIN SUBJECT s ON s.subjectID = rd.subjectID
             LEFT JOIN BATCH b ON b.batchID = rd.batchID
             WHERE rd.registrationID = ? AND rd.enrollStatus = 'Active'
-            ORDER BY s.subjectName
+            ORDER BY s.subjCode
             """,
             (registration_id,),
         ).fetchall()
@@ -609,7 +609,7 @@ class ProcessPayment(ctk.CTkFrame):
                 batch_txt = line.get("batchLabel") or "—"
                 sched = line.get("schedule") or "—"
                 ctk.CTkLabel(
-                    inner, text=line["subjectName"],
+                    inner, text=line["subjCode"],
                     font=ctk.CTkFont(family="Inter", size=12, weight="bold"),
                     text_color="#15165e",
                 ).pack(anchor="w")
@@ -705,7 +705,7 @@ class ProcessPayment(ctk.CTkFrame):
 
             enrolled_summary = [
                 (
-                    f"{ln['subjectName']} (Batch {ln.get('batchLabel') or '—'}) — "
+                    f"{ln['subjCode']} (Batch {ln.get('batchLabel') or '—'}) — "
                     f"{self._money(ln.get('feeAmount', 0))}"
                 )
                 for ln in self._enrolled_lines
