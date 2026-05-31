@@ -9,7 +9,7 @@ class ModernCombo(ctk.CTkComboBox):
     are inherited unchanged.
     """
 
-    def __init__(self, master, values=None, command=None, **kwargs):
+    def __init__(self, master, values=None, command=None, placeholder_text="", **kwargs):
         # Default styling matching the navy‑accented design language
         defaults = {
             "values": values or [],
@@ -30,6 +30,7 @@ class ModernCombo(ctk.CTkComboBox):
         if command is not None:
             defaults["command"] = command
         defaults.update(kwargs)
+        self._placeholder = placeholder_text
         dropdown_width = defaults.pop("dropdown_width", 0)
         super().__init__(master, **defaults)
         # Ensure the ComboBox has the internal _font attribute required by CustomTkinter's destroy()
@@ -37,6 +38,37 @@ class ModernCombo(ctk.CTkComboBox):
             self._font = ctk.CTkFont(family="Inter", size=13)
         self._dropdown_width = dropdown_width
         self.after_idle(self._sync_dropdown_width)
+        # Apply placeholder styling after widget is fully initialized
+        self.after_idle(self._apply_placeholder)
+
+    def _apply_placeholder(self):
+        """Show gray placeholder text if nothing is selected."""
+        try:
+            current = self.get()
+        except Exception:
+            return
+        if not current or current == self._placeholder:
+            if self._placeholder:
+                super().set(self._placeholder)
+            self.configure(text_color="#b0b0b0")
+
+    def set(self, value):
+        """Override set to handle placeholder color."""
+        super().set(value)
+        if hasattr(self, "_placeholder"):
+            if value and value != self._placeholder:
+                self.configure(text_color="#0f172a")
+            else:
+                self.configure(text_color="#b0b0b0")
+
+    def _dropdown_callback(self, value: str):
+        """Called when an item is selected from the dropdown menu."""
+        super()._dropdown_callback(value)
+        if hasattr(self, "_placeholder"):
+            if value and value != self._placeholder:
+                self.configure(text_color="#0f172a")
+            else:
+                self.configure(text_color="#b0b0b0")
 
     def _sync_dropdown_width(self):
         """Match dropdown menu width to combo width via min_character_width."""
@@ -66,5 +98,22 @@ class ModernCombo(ctk.CTkComboBox):
             self.after_idle(self._sync_dropdown_width)
 
     def _open_dropdown_menu(self):
+        # Clear placeholder text when dropdown opens so real values show cleanly
+        if hasattr(self, "_placeholder") and self.get() == self._placeholder:
+            super().set("")
         self._sync_dropdown_width()
         super()._open_dropdown_menu()
+        # After dropdown closes, re-apply placeholder if nothing was chosen
+        self.after(200, self._recheck_placeholder)
+
+    def _recheck_placeholder(self):
+        try:
+            val = self.get()
+        except Exception:
+            return
+        if not val or val == self._placeholder:
+            if self._placeholder:
+                super().set(self._placeholder)
+            self.configure(text_color="#b0b0b0")
+        else:
+            self.configure(text_color="#0f172a")
