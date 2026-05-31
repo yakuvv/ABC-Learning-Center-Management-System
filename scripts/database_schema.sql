@@ -22,8 +22,6 @@ PRAGMA foreign_keys = ON;
 
 -- -----------------------------------------------------------------------------
 -- STUDENT
--- BEFORE: levelType TEXT (optional)
--- NOW:    level TEXT NOT NULL, program TEXT
 -- -----------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS STUDENT (
     studentID INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -33,10 +31,8 @@ CREATE TABLE IF NOT EXISTS STUDENT (
     gender TEXT NOT NULL CHECK (gender IN ('M', 'F')),
     dob DATE NOT NULL,
     address TEXT,
-    studContactNo TEXT,
-    studEmail TEXT UNIQUE,
-    level TEXT NOT NULL,
-    program TEXT
+    studContactInfo TEXT,
+    level TEXT NOT NULL
 );
 
 -- -----------------------------------------------------------------------------
@@ -46,8 +42,7 @@ CREATE TABLE IF NOT EXISTS PARENT (
     parentID INTEGER PRIMARY KEY AUTOINCREMENT,
     studentID INTEGER NOT NULL,
     parName TEXT NOT NULL,
-    parContactNo TEXT,
-    parEmail TEXT,
+    parContactInfo TEXT,
     relationship TEXT NOT NULL,
     FOREIGN KEY (studentID) REFERENCES STUDENT (studentID) ON DELETE CASCADE
 );
@@ -59,8 +54,6 @@ CREATE TABLE IF NOT EXISTS STAFF (
     staffID INTEGER PRIMARY KEY AUTOINCREMENT,
     staffFname TEXT NOT NULL,
     staffLname TEXT NOT NULL,
-    position TEXT NOT NULL,
-    staffContactNo TEXT,
     email TEXT UNIQUE NOT NULL,
     password TEXT NOT NULL
 );
@@ -72,10 +65,8 @@ CREATE TABLE IF NOT EXISTS TUTOR (
     tutorID INTEGER PRIMARY KEY AUTOINCREMENT,
     tutorFname TEXT NOT NULL,
     tutorLname TEXT NOT NULL,
-    tutorContactNo TEXT,
     tutorEmail TEXT UNIQUE NOT NULL,
-    password TEXT NOT NULL,
-    specialization TEXT
+    password TEXT NOT NULL
 );
 
 -- -----------------------------------------------------------------------------
@@ -88,10 +79,25 @@ CREATE TABLE IF NOT EXISTS SUBJECT (
     subjectName TEXT NOT NULL,
     description TEXT,
     level TEXT NOT NULL,
-    program TEXT,
-    termType TEXT,
     pricePerTerm REAL,
     isActive INTEGER DEFAULT 1
+);
+
+-- -----------------------------------------------------------------------------
+-- BATCH
+-- -----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS BATCH (
+    batchID INTEGER PRIMARY KEY AUTOINCREMENT,
+    batchCode TEXT UNIQUE NOT NULL,
+    subjectID INTEGER NOT NULL,
+    level TEXT NOT NULL,
+    schedule TEXT NOT NULL,
+    batchLabel TEXT NOT NULL,
+    tutorID INTEGER,
+    capacity INTEGER NOT NULL DEFAULT 15,
+    isActive INTEGER NOT NULL DEFAULT 1,
+    FOREIGN KEY (subjectID) REFERENCES SUBJECT (subjectID),
+    FOREIGN KEY (tutorID) REFERENCES TUTOR (tutorID)
 );
 
 -- -----------------------------------------------------------------------------
