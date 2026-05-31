@@ -7,7 +7,8 @@ from datetime import datetime
 
 
 class Dashboard(ctk.CTkFrame):
-    STAFF_ONLY_MODULES = {"Profile Students", "Manage Enrollment", "Process Payment"}
+    STAFF_ONLY_MODULES = {"Profile Students", "Manage Enrollment", "Process Payment", "Reports"}
+    TUTOR_ONLY_MODULES = {"Record Attendance", "Manage Grades"}
 
     def __init__(self, parent=None, user_role="Admin", user_name="User", user_id=None):
         if parent is None:
@@ -107,11 +108,12 @@ class Dashboard(ctk.CTkFrame):
             ("✅  Record Attendance", self.open_attendance, "Record Attendance"),
             ("💳  Process Payment",   self.open_payment,  "Process Payment"),
             ("📝  Manage Grades",     self.open_grades,   "Manage Grades"),
+            ("📊  Reports",           self.open_reports,  "Reports"),
         ]
         is_tutor = self.user_role.lower() == "tutor"
         nav_items = [
             (text, cmd) for text, cmd, name in all_nav_items
-            if not (is_tutor and name in self.STAFF_ONLY_MODULES)
+            if (is_tutor and name not in self.STAFF_ONLY_MODULES) or (not is_tutor and name not in self.TUTOR_ONLY_MODULES)
         ]
 
         self.nav_buttons = []
@@ -268,11 +270,9 @@ class Dashboard(ctk.CTkFrame):
                 enr_count = cursor.fetchone()["c"]
                 cursor.execute("SELECT COUNT(*) AS c FROM PAYMENT")
                 pay_count = cursor.fetchone()["c"]
-                cursor.execute("SELECT COUNT(*) AS c FROM ATTENDANCE WHERE attDate=date('now')")
-                att_today = cursor.fetchone()["c"]
             conn.close()
         except Exception:
-            student_count = enr_count = pay_count = att_today = 0
+            student_count = enr_count = pay_count = 0
 
         self._section_label(scroll, "OVERVIEW", pady=(0, 4))
 
@@ -285,10 +285,9 @@ class Dashboard(ctk.CTkFrame):
         stats_row.pack(fill="x", padx=16, pady=6)
 
         stat_items = [
-            ("Total Students",     str(student_count), "#122aff", "#eef2ff"),
-            ("Active Registrations", str(enr_count),     "#00bf63", "#f0fdf4"),
-            ("Payments Recorded",  str(pay_count),     "#f59e0b", "#fffbeb"),
-            ("Attendance Today",   str(att_today),     "#8b5cf6", "#f5f3ff"),
+            ("Total Students",      str(student_count), "#122aff", "#eef2ff"),
+            ("Active Registrations", str(enr_count),    "#00bf63", "#f0fdf4"),
+            ("Payments Recorded",   str(pay_count),     "#f59e0b", "#fffbeb"),
         ]
         if is_tutor:
             stat_items = [s for s in stat_items if s[0] != "Payments Recorded"]
@@ -329,11 +328,12 @@ class Dashboard(ctk.CTkFrame):
             ("Record Attendance", "Mark student attendance",       "#f59e0b", self.open_attendance, "Record Attendance"),
             ("Process Payment",   "Record fees and receipts",      "#8b5cf6", self.open_payment,  "Process Payment"),
             ("Manage Grades",     "Enter and view student grades", "#e20000", self.open_grades,   "Manage Grades"),
+            ("Reports",           "Generate & export reports",    "#0ea5e9", self.open_reports,  "Reports"),
         ]
         module_items = [
             (title, desc, color, cmd)
             for title, desc, color, cmd, name in all_module_items
-            if not (is_tutor and name in self.STAFF_ONLY_MODULES)
+            if (is_tutor and name not in self.STAFF_ONLY_MODULES) or (not is_tutor and name not in self.TUTOR_ONLY_MODULES)
         ]
 
         # Plain white wrapper card for all quick access rows
@@ -383,22 +383,22 @@ class Dashboard(ctk.CTkFrame):
         right_col = ctk.CTkFrame(body_row, fg_color="transparent")
         right_col.grid(row=0, column=1, sticky="nsew")
 
-        self._section_label(right_col, "RECENT ATTENDANCE  (Today)")
+        self._section_label(right_col, "RECENT ENROLLMENTS", pady=(0, 4))
 
-        att_card, att_inner = self._card(right_col, show_accent=False)
-        att_card.pack(fill="both", expand=True)
+        enr_card, enr_inner = self._card(right_col, show_accent=False)
+        enr_card.pack(fill="both", expand=True)
 
         style = ttk.Style()
         style.theme_use("clam")
         style.configure("Dash.Treeview.Heading",
                         background="#15165e", foreground="#ffffff",
-                        font=("Inter", 11, "bold"),
-                        borderwidth=0, relief="flat", padding=(6, 5))
+                        font=("Inter", 9, "bold"),
+                        borderwidth=0, relief="flat", padding=(6, 4))
         style.map("Dash.Treeview.Heading",
                   background=[("active", "#1e1f80")],
                   foreground=[("active", "#ffffff")])
         style.configure("Dash.Treeview",
-                        font=("Inter", 11), rowheight=34,
+                        font=("Inter", 9), rowheight=24,
                         fieldbackground="#ffffff", background="#ffffff",
                         borderwidth=0, relief="flat",
                         selectbackground="#e0e7ff", selectforeground="#15165e")
@@ -410,87 +410,61 @@ class Dashboard(ctk.CTkFrame):
             import database
             conn = database.get_connection()
             cur = conn.cursor()
-            if is_tutor and self.user_id:
-                # Show all students in tutor's batches; LEFT JOIN so they appear even without attendance
-                cur.execute("""
-                    SELECT s.studLname || ', ' || s.studFname AS name,
-                           r.level,
-                           sub.subjectName || ' (' || b.batchLabel || ')' AS groupName,
-                           COALESCE(a.attStatus, 'Not Recorded') AS attStatus
-                    FROM REGISTRATION_DETAIL d
-                    JOIN BATCH b ON d.batchID = b.batchID
-                    JOIN REGISTRATION r ON d.registrationID = r.registrationID
-                    JOIN STUDENT s ON r.studentID = s.studentID
-                    JOIN SUBJECT sub ON d.subjectID = sub.subjectID
-                    LEFT JOIN ATTENDANCE a ON a.detailID = d.detailID AND a.attDate = date('now')
-                    WHERE b.tutorID = ? AND d.enrollStatus = 'Active'
-                    ORDER BY
-                        CAST(REPLACE(r.level, 'Grade ', '') AS INTEGER),
-                        sub.subjectName, b.batchLabel,
-                        s.studLname, s.studFname
-                    LIMIT 50
-                """, (self.user_id,))
-            else:
-                cur.execute("""
-                    SELECT s.studLname || ', ' || s.studFname AS name,
-                           r.level, r.groupName,
-                           a.attStatus
-                    FROM ATTENDANCE a
-                    JOIN REGISTRATION_DETAIL d ON a.detailID = d.detailID
-                    JOIN REGISTRATION r ON d.registrationID = r.registrationID
-                    JOIN STUDENT s ON r.studentID = s.studentID
-                    WHERE a.attDate = date('now')
-                    ORDER BY
-                        CAST(REPLACE(r.level, 'Grade ', '') AS INTEGER),
-                        r.groupName,
-                        s.studLname, s.studFname
-                    LIMIT 25
-                """)
-            att_rows = cur.fetchall()
+            cur.execute("""
+                SELECT
+                    r.regDate                                          AS reg_date,
+                    r.learnerID                                        AS learner_id,
+                    s.studLname || ', ' || s.studFname
+                        || CASE WHEN s.studMname IS NOT NULL AND s.studMname != ''
+                                THEN ' ' || s.studMname ELSE '' END    AS student_name,
+                    r.level                                            AS grade_level,
+                    st.staffLname || ', ' || st.staffFname             AS enrolled_by
+                FROM REGISTRATION r
+                JOIN STUDENT s  ON r.studentID = s.studentID
+                JOIN STAFF   st ON r.staffID   = st.staffID
+                ORDER BY r.registrationID DESC
+                LIMIT 8
+            """)
+            enr_rows = cur.fetchall()
             conn.close()
         except Exception:
-            att_rows = []
+            enr_rows = []
 
-        cols = ("#", "Student Name", "Level", "Group Name", "Attendance")
-        tree = ttk.Treeview(att_inner, columns=cols, show="headings",
-                            height=4, style="Dash.Treeview")
+        cols = ("Date", "Learner ID", "Student Name", "Grade Level", "Enrolled By")
+        tree = ttk.Treeview(enr_inner, columns=cols, show="headings",
+                            height=8, style="Dash.Treeview")
 
         col_cfg = {
-            "#":           (50,  "center", False),
-            "Student Name":(220, "w",      True),
-            "Level":       (120, "center", False),
-            "Group Name":  (150, "center", False),
-            "Attendance":  (130, "center", False),
+            "Date":         (110, "w", False),
+            "Learner ID":   (140, "w", False),
+            "Student Name": (0,   "w", True),
+            "Grade Level":  (120, "w", False),
+            "Enrolled By":  (170, "w", False),
         }
         for col, (w, anch, stretch) in col_cfg.items():
             tree.heading(col, text=col, anchor=anch)
             tree.column(col, width=w, anchor=anch, stretch=stretch, minwidth=w)
 
-        for status, fg_color, bg_even in [
-            ("present", "#059669", "#f0fdf4"),
-            ("absent",  "#dc2626", "#fff5f5"),
-            ("late",    "#2563eb", "#eff6ff"),
-            ("pending", "#94a3b8", "#f8fafc"),
-        ]:
-            tree.tag_configure(f"{status}_even", foreground=fg_color, background=bg_even)
-            tree.tag_configure(f"{status}_odd",  foreground=fg_color, background="#ffffff")
+        tree.tag_configure("even", background="#f8fafc")
+        tree.tag_configure("odd",  background="#ffffff")
 
-        if att_rows:
-            for idx, r in enumerate(att_rows):
-                parity = "even" if idx % 2 == 0 else "odd"
-                status = r['attStatus'] if r['attStatus'] else 'Not Recorded'
-                status_key = status.lower() if status.lower() in ('present', 'absent', 'late') else 'pending'
-                tag = f"{status_key}_{parity}"
+        if enr_rows:
+            for idx, r in enumerate(enr_rows):
+                tag = "even" if idx % 2 == 0 else "odd"
                 tree.insert("", "end",
-                            values=(idx + 1, r["name"],
-                                    r["level"], r["groupName"],
-                                    status),
+                            values=(
+                                r["reg_date"],
+                                r["learner_id"] or "—",
+                                r["student_name"],
+                                r["grade_level"],
+                                r["enrolled_by"],
+                            ),
                             tags=(tag,))
         else:
             tree.insert("", "end",
-                        values=("", "No attendance recorded today yet.", "", "", ""))
+                        values=("", "", "No recent enrollments yet.", "", ""))
 
-        sb = ttk.Scrollbar(att_inner, orient="vertical", command=tree.yview)
+        sb = ttk.Scrollbar(enr_inner, orient="vertical", command=tree.yview)
         tree.configure(yscrollcommand=sb.set)
         sb.pack(side="right", fill="y")
         tree.pack(fill="both", expand=True)
@@ -539,6 +513,9 @@ class Dashboard(ctk.CTkFrame):
         self._open_module(ManageEnrollment, staff_only=True)
 
     def open_attendance(self):
+        if not self.user_role.lower() == "tutor":
+            messagebox.showwarning("Access Denied", "Only tutors can access Attendance.")
+            return
         from modules.record_attendance import RecordAttendance
         self._open_module(RecordAttendance)
 
@@ -547,8 +524,15 @@ class Dashboard(ctk.CTkFrame):
         self._open_module(ProcessPayment, staff_only=True)
 
     def open_grades(self):
+        if not self.user_role.lower() == "tutor":
+            messagebox.showwarning("Access Denied", "Only tutors can access Grades.")
+            return
         from modules.manage_grades import ManageGrades
         self._open_module(ManageGrades)
+
+    def open_reports(self):
+        from modules.generate_reports import GenerateReports
+        self._open_module(GenerateReports, staff_only=True)
 
     def logout(self):
         if messagebox.askyesno("Logout", "Are you sure you want to logout?"):
