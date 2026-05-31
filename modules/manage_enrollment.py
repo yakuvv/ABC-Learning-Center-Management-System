@@ -236,7 +236,7 @@ class ManageEnrollment(ctk.CTkFrame):
         self.selected_batches[subject_id] = batch_id
 
     def _build_batch_tiles(self, parent, subject_id, batches):
-        """Two clickable Batch A / B tiles instead of a long dropdown."""
+        """Clickable Batch tiles in a 2-column grid format instead of a long dropdown."""
         tiles_wrap = ctk.CTkFrame(parent, fg_color="transparent")
         tiles_wrap.pack(fill="x", pady=(4, 0))
         tiles_wrap.columnconfigure(0, weight=1)
@@ -245,7 +245,9 @@ class ManageEnrollment(ctk.CTkFrame):
         peer_tiles = []
         first_available = None
 
-        for col, b in enumerate(batches[:2]):
+        for idx, b in enumerate(batches):
+            col = idx % 2
+            row = idx // 2
             enrolled = int(b["enrolled"])
             capacity = int(b["capacity"])
             full = enrolled >= capacity
@@ -258,7 +260,7 @@ class ManageEnrollment(ctk.CTkFrame):
                 tiles_wrap, fg_color=bg, corner_radius=10,
                 border_width=2, border_color=border, height=100,
             )
-            tile.grid(row=0, column=col, sticky="nsew", padx=(0, 6) if col == 0 else (6, 0), pady=2)
+            tile.grid(row=row, column=col, sticky="nsew", padx=(0, 6) if col == 0 else (6, 0), pady=4)
             tile.pack_propagate(False)
             peer_tiles.append(tile)
 
@@ -268,7 +270,8 @@ class ManageEnrollment(ctk.CTkFrame):
             top_row = ctk.CTkFrame(inner, fg_color="transparent")
             top_row.pack(fill="x")
 
-            ctk.CTkLabel(                top_row, text=f"Batch {b['batchLabel']}",
+            ctk.CTkLabel(
+                top_row, text=f"Batch {b['batchLabel']}",
                 font=ctk.CTkFont(family="Inter", size=13, weight="bold"),
                 text_color="#15165e" if not full else "#991b1b",
             ).pack(side="left")
@@ -301,7 +304,7 @@ class ManageEnrollment(ctk.CTkFrame):
                 if first_available is None:
                     first_available = (bid, tile)
 
-        for b, tile in zip(batches[:2], peer_tiles):
+        for b, tile in zip(batches, peer_tiles):
             enrolled = int(b["enrolled"])
             capacity = int(b["capacity"])
             if enrolled >= capacity:
@@ -677,9 +680,9 @@ class ManageEnrollment(ctk.CTkFrame):
 
             all_subjects = cursor.execute(
                 """
-                SELECT subjectID, subjectName, pricePerTerm FROM SUBJECT
+                SELECT subjectID, subjCode, pricePerTerm FROM SUBJECT
                 WHERE level = ? AND isActive = 1
-                ORDER BY subjectName
+                ORDER BY subjCode
                 """,
                 (level,),
             ).fetchall()
@@ -706,7 +709,7 @@ class ManageEnrollment(ctk.CTkFrame):
 
             for subj in all_subjects:
                 subject_id = subj["subjectID"]
-                subj_name = subj["subjectName"]
+                subj_name = subj["subjCode"]
                 subj_price = float(subj["pricePerTerm"] or term_price)
 
                 include_var = ctk.BooleanVar(value=subject_id in preselected)
@@ -847,10 +850,10 @@ class ManageEnrollment(ctk.CTkFrame):
         self.subject_vars = {}
 
         cursor.execute("""
-            SELECT subjectID, subjectName, description
+            SELECT subjectID, subjCode, description
             FROM SUBJECT
             WHERE level = ? AND isActive = 1
-            ORDER BY subjectName
+            ORDER BY subjCode
         """, (level,))
 
         subjects = cursor.fetchall()
@@ -871,7 +874,7 @@ class ManageEnrollment(ctk.CTkFrame):
             self.subject_vars[s['subjectID']] = var
             row = idx // 2
             col = idx % 2
-            chk = ctk.CTkCheckBox(grid_frame, text=s['subjectName'], variable=var,
+            chk = ctk.CTkCheckBox(grid_frame, text=s['subjCode'], variable=var,
                                   font=ctk.CTkFont(family="Inter", size=12),
                                   fg_color="#122aff", hover_color="#0b1eb3",
                                   command=self.update_select_all_state)
@@ -1060,9 +1063,8 @@ class ManageEnrollment(ctk.CTkFrame):
         self.tree_frame = ctk.CTkFrame(table_card, fg_color="transparent", corner_radius=8)
         self.tree_frame.pack(fill="both", expand=True, padx=15, pady=12)
         self.tree_frame.bind("<Configure>", self._fit_enrollment_tree_to_card)
-
         import tkinter.ttk as ttk
-        columns = ("Learner ID", "Student Name", "Grade Level", "Batch", "Term", "Staff", "Status")
+        columns = ("Learner ID", "Student Name", "Grade Level", "Term", "Staff", "Status")
 
         style = ttk.Style()
         style.theme_use("clam")
@@ -1102,17 +1104,15 @@ class ManageEnrollment(ctk.CTkFrame):
             height=12,
             style="Enrollment.Treeview",
         )
-
         self.tree.tag_configure("evenrow", background="#f8fafc")
         self.tree.tag_configure("oddrow", background="#ffffff")
 
         self.class_search_entry.bind("<KeyRelease>", lambda e: self.search_enrollment_by_class())
 
-        col_widths = [120, 200, 100, 90, 90, 140, 80]
-        col_anchors = ["center", "w", "center", "center", "center", "center", "center"]
-        for col, width, anchor in zip(columns, col_widths, col_anchors):
-            self.tree.heading(col, text=col)
-            self.tree.column(col, width=width, anchor=anchor, minwidth=width)
+        col_widths = [120, 200, 110, 100, 150, 90]
+        for col, width in zip(columns, col_widths):
+            self.tree.heading(col, text=col, anchor="w")
+            self.tree.column(col, width=width, anchor="w", minwidth=width)
 
         scrollbar = ttk.Scrollbar(self.tree_frame, orient="vertical", command=self.tree.yview)
         self.tree.configure(yscrollcommand=scrollbar.set)
@@ -1163,7 +1163,6 @@ class ManageEnrollment(ctk.CTkFrame):
                     row["learnerID"] or "—",
                     full_name,
                     row["level"] or "—",
-                    self._format_batch_labels(row["batchLabels"] if row["batchLabels"] else None),
                     row["term"],
                     staff_name,
                     row["regStatus"],
@@ -1258,7 +1257,7 @@ class ManageEnrollment(ctk.CTkFrame):
             conn = database.get_connection()
             cursor = conn.cursor()
             cursor.execute("""
-                SELECT studentID, studLname, studFname, studMname, gender, dob, address, studContactNo, studEmail, level
+                SELECT studentID, studLname, studFname, studMname, gender, dob, address, studContactInfo, level
                 FROM STUDENT WHERE studentID = ?
             """, (student_id,))
             student = cursor.fetchone()
@@ -1269,7 +1268,7 @@ class ManageEnrollment(ctk.CTkFrame):
             """, (student_id,))
             reg = cursor.fetchone()
             cursor.execute("""
-                SELECT parName, parContactNo, parEmail, relationship
+                SELECT parName, parContactInfo, relationship
                 FROM PARENT WHERE studentID = ?
             """, (student_id,))
             parent = cursor.fetchone()
@@ -1343,8 +1342,7 @@ class ManageEnrollment(ctk.CTkFrame):
         add_row(stud_inner, grid_s, 2, "Grade Level", student['level'] or "Unassigned")
         add_row(stud_inner, grid_s, 3, "Gender", student['gender'])
         add_row(stud_inner, grid_s, 4, "Date of Birth", student['dob'])
-        add_row(stud_inner, grid_s, 5, "Contact No", student['studContactNo'] or "\u2014")
-        add_row(stud_inner, grid_s, 6, "Email Address", student['studEmail'] or "\u2014")
+        add_row(stud_inner, grid_s, 5, "Contact Information", student['studContactInfo'] or "\u2014")
         addr_f = ctk.CTkFrame(stud_inner, fg_color="transparent")
         addr_f.pack(fill="x", pady=(8, 0), padx=5)
         ctk.CTkLabel(addr_f, text="Full Address:",
@@ -1362,8 +1360,7 @@ class ManageEnrollment(ctk.CTkFrame):
             grid_p.columnconfigure(1, weight=1)
             add_row(par_inner, grid_p, 0, "Parent Name", parent['parName'])
             add_row(par_inner, grid_p, 1, "Relationship", parent['relationship'])
-            add_row(par_inner, grid_p, 2, "Contact No", parent['parContactNo'] or "\u2014")
-            add_row(par_inner, grid_p, 3, "Email Address", parent['parEmail'] or "\u2014")
+            add_row(par_inner, grid_p, 2, "Contact Information", parent['parContactInfo'] or "\u2014")
         else:
             ctk.CTkLabel(par_inner,
                          text="No parent/guardian information found.",
