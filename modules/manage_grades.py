@@ -380,18 +380,18 @@ class ManageGrades(ctk.CTkFrame):
         # ── TAB 2: INDIVIDUAL STUDENT GRADES ────────────────────────────────
         self.individual_tab_frame = ctk.CTkFrame(main_frame, fg_color="transparent")
 
+        ctk.CTkLabel(
+            self.individual_tab_frame, text="SEARCH STUDENT FOR INDIVIDUAL GRADES",
+            font=ctk.CTkFont(family="Inter", size=15, weight="bold"),
+            text_color="#000000",
+        ).pack(anchor="w", pady=(0, 6))
+
         search_card2 = ctk.CTkFrame(self.individual_tab_frame, fg_color="#ffffff",
                                     corner_radius=16, border_width=1, border_color="#cbd5e1")
         search_card2.pack(fill="x", pady=(0, 10))
 
         search_inner2 = ctk.CTkFrame(search_card2, fg_color="transparent")
-        search_inner2.pack(padx=20, pady=15, fill="x")
-
-        ctk.CTkLabel(
-            search_inner2, text="SEARCH STUDENT FOR INDIVIDUAL GRADES",
-            font=ctk.CTkFont(family="Inter", size=15, weight="bold"),
-            text_color="#15165e",
-        ).pack(anchor="w", pady=(0, 5))
+        search_inner2.pack(padx=20, pady=12, fill="x")
 
         self.ind_search_entry = ModernEntry(
             search_inner2,
@@ -882,7 +882,7 @@ class ManageGrades(ctk.CTkFrame):
                              if r['studMname'] else "")
                     lbl = (f" {r['studFname']}{mname} {r['studLname']}"
                            f"  (Learner ID: {r['learnerID']}"
-                           f" | {r['level']} - {r['groupName']})")
+                           f" | {r['level']})")
                     self.ind_suggest_lbox.insert(tk.END, lbl)
                 self.ind_suggest_lbox.config(height=min(len(rows), 6))
                 self.ind_suggest_frame.pack(fill="x",
