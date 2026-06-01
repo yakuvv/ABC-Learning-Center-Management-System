@@ -90,13 +90,12 @@ def seed_batches(cursor):
             ("C", "Sunday 9:00 AM – 11:00 AM"),
             ("D", "Sunday 1:00 PM – 3:00 PM"),
         ]:
-            batch_code = f"{level}-{subject_id}-{label}"
             cursor.execute(
                 """
-                INSERT INTO BATCH (batchCode, subjectID, level, schedule, batchLabel, tutorID, capacity, isActive)
-                VALUES (?, ?, ?, ?, ?, ?, 15, 1)
+                INSERT INTO BATCH (subjectID, level, schedule, batchLabel, tutorID, capacity, isActive)
+                VALUES (?, ?, ?, ?, ?, 15, 1)
                 """,
-                (batch_code, subject_id, level, sched, label, tutor_id),
+                (subject_id, level, sched, label, tutor_id),
             )
 
 
@@ -117,9 +116,9 @@ def seed_subjects(cursor):
         for code, name in subjects:
             subj_code = f"{code}{g}"
             cursor.execute("""
-                INSERT INTO SUBJECT (subjCode, subjectName, description, level, pricePerTerm)
-                VALUES (?, ?, ?, ?, ?)
-            """, (subj_code, name, name, level, price))
+                INSERT INTO SUBJECT (subjCode, subjectName, level, pricePerTerm)
+                VALUES (?, ?, ?, ?)
+            """, (subj_code, name, level, price))
 
     # Elementary Grade 4-6
     for g in range(4, 7):
@@ -136,9 +135,9 @@ def seed_subjects(cursor):
         for code, name in subjects:
             subj_code = f"{code}{g}"
             cursor.execute("""
-                INSERT INTO SUBJECT (subjCode, subjectName, description, level, pricePerTerm)
-                VALUES (?, ?, ?, ?, ?)
-            """, (subj_code, name, name, level, price))
+                INSERT INTO SUBJECT (subjCode, subjectName, level, pricePerTerm)
+                VALUES (?, ?, ?, ?)
+            """, (subj_code, name, level, price))
 
     # Junior High Grade 7-8
     for g in range(7, 9):
@@ -156,9 +155,9 @@ def seed_subjects(cursor):
         for code, name in subjects:
             subj_code = f"{code}{g}"
             cursor.execute("""
-                INSERT INTO SUBJECT (subjCode, subjectName, description, level, pricePerTerm)
-                VALUES (?, ?, ?, ?, ?)
-            """, (subj_code, name, name, level, price))
+                INSERT INTO SUBJECT (subjCode, subjectName, level, pricePerTerm)
+                VALUES (?, ?, ?, ?)
+            """, (subj_code, name, level, price))
 
     # Junior High Grade 9-10
     for g in range(9, 11):
@@ -177,9 +176,9 @@ def seed_subjects(cursor):
         for code, name in subjects:
             subj_code = f"{code}{g}"
             cursor.execute("""
-                INSERT INTO SUBJECT (subjCode, subjectName, description, level, pricePerTerm)
-                VALUES (?, ?, ?, ?, ?)
-            """, (subj_code, name, name, level, price))
+                INSERT INTO SUBJECT (subjCode, subjectName, level, pricePerTerm)
+                VALUES (?, ?, ?, ?)
+            """, (subj_code, name, level, price))
 
     # Senior High Grade 11-12
     for g in range(11, 13):
@@ -208,9 +207,9 @@ def seed_subjects(cursor):
         for code, name in subjects:
             subj_code = f"{code}{g}"
             cursor.execute("""
-                INSERT INTO SUBJECT (subjCode, subjectName, description, level, pricePerTerm)
-                VALUES (?, ?, ?, ?, ?)
-            """, (subj_code, name, name, level, price))
+                INSERT INTO SUBJECT (subjCode, subjectName, level, pricePerTerm)
+                VALUES (?, ?, ?, ?)
+            """, (subj_code, name, level, price))
 
 
 def run_migration():
