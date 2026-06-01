@@ -150,7 +150,7 @@ def generate_registration_pdf(filepath, s, subjects):
     s keys: school_id, studLname, studFname, studMname, grade_level, section,
             gender, dob, address, school_year, term, enrollment_date, staff_name,
             parent_name, parent_contact_info
-    subjects: list of subject dicts with subjCode, description
+    subjects: list of subject dicts with subjCode, subjectName
     """
     doc = SimpleDocTemplate(filepath, pagesize=letter,
                             leftMargin=36, rightMargin=36,
@@ -261,13 +261,13 @@ def generate_registration_pdf(filepath, s, subjects):
     story.append(Paragraph("<b>ENROLLED SUBJECTS</b>", section_title_style))
 
     subject_table_data = [[
-        Paragraph("<b>Subject Name</b>", bold_style),
-        Paragraph("<b>Description</b>",  bold_style)
+        Paragraph("<b>Subject Code</b>", bold_style),
+        Paragraph("<b>Subject Name</b>",  bold_style)
     ]]
     for sub in subjects:
         subject_table_data.append([
             Paragraph(sub['subjCode'], normal_style),
-            Paragraph(sub['description'] or 'No description available', normal_style)
+            Paragraph(sub.get('subjectName') or sub.get('subjCode', '—'), normal_style)
         ])
 
     subject_table = Table(subject_table_data, colWidths=[180, 360])
