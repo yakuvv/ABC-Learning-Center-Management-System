@@ -33,9 +33,9 @@ for g in range(1, 4):
     for code, name in subjects:
         subj_code = f"{code}{g}"
         cur.execute("""
-            INSERT INTO SUBJECT (subjCode, subjectName, description, level, pricePerTerm)
-            VALUES (?, ?, ?, ?, ?)
-        """, (subj_code, name, name, level, price))
+            INSERT INTO SUBJECT (subjCode, subjectName, level, pricePerTerm)
+            VALUES (?, ?, ?, ?)
+        """, (subj_code, name, level, price))
 
 # Elementary Grade 4-6
 for g in range(4, 7):
@@ -52,9 +52,9 @@ for g in range(4, 7):
     for code, name in subjects:
         subj_code = f"{code}{g}"
         cur.execute("""
-            INSERT INTO SUBJECT (subjCode, subjectName, description, level, pricePerTerm)
-            VALUES (?, ?, ?, ?, ?)
-        """, (subj_code, name, name, level, price))
+            INSERT INTO SUBJECT (subjCode, subjectName, level, pricePerTerm)
+            VALUES (?, ?, ?, ?)
+        """, (subj_code, name, level, price))
 
 # Junior High Grade 7-8
 for g in range(7, 9):
@@ -72,9 +72,9 @@ for g in range(7, 9):
     for code, name in subjects:
         subj_code = f"{code}{g}"
         cur.execute("""
-            INSERT INTO SUBJECT (subjCode, subjectName, description, level, pricePerTerm)
-            VALUES (?, ?, ?, ?, ?)
-        """, (subj_code, name, name, level, price))
+            INSERT INTO SUBJECT (subjCode, subjectName, level, pricePerTerm)
+            VALUES (?, ?, ?, ?)
+        """, (subj_code, name, level, price))
 
 # Junior High Grade 9-10
 for g in range(9, 11):
@@ -93,9 +93,9 @@ for g in range(9, 11):
     for code, name in subjects:
         subj_code = f"{code}{g}"
         cur.execute("""
-            INSERT INTO SUBJECT (subjCode, subjectName, description, level, pricePerTerm)
-            VALUES (?, ?, ?, ?, ?)
-        """, (subj_code, name, name, level, price))
+            INSERT INTO SUBJECT (subjCode, subjectName, level, pricePerTerm)
+            VALUES (?, ?, ?, ?)
+        """, (subj_code, name, level, price))
 
 # Senior High Grade 11-12
 for g in range(11, 13):
@@ -124,9 +124,9 @@ for g in range(11, 13):
     for code, name in subjects:
         subj_code = f"{code}{g}"
         cur.execute("""
-            INSERT INTO SUBJECT (subjCode, subjectName, description, level, pricePerTerm)
-            VALUES (?, ?, ?, ?, ?)
-        """, (subj_code, name, name, level, price))
+            INSERT INTO SUBJECT (subjCode, subjectName, level, pricePerTerm)
+            VALUES (?, ?, ?, ?)
+        """, (subj_code, name, level, price))
 
 conn.commit()
 subject_count = cur.execute("SELECT COUNT(*) FROM SUBJECT").fetchone()[0]
@@ -146,11 +146,10 @@ for subject_id, level in subjects:
         ("C", "Sunday 9:00 AM – 11:00 AM"),
         ("D", "Sunday 1:00 PM – 3:00 PM"),
     ]:
-        batch_code = f"{level}-{subject_id}-{label}"
         cur.execute("""
-            INSERT INTO BATCH (batchCode, subjectID, level, schedule, batchLabel, tutorID, capacity, isActive)
-            VALUES (?, ?, ?, ?, ?, ?, 15, 1)
-        """, (batch_code, subject_id, level, sched, label, tutor_id))
+            INSERT INTO BATCH (subjectID, level, schedule, batchLabel, tutorID, capacity, isActive)
+            VALUES (?, ?, ?, ?, ?, 15, 1)
+        """, (subject_id, level, sched, label, tutor_id))
 
 conn.commit()
 batch_count = cur.execute("SELECT COUNT(*) FROM BATCH").fetchone()[0]
