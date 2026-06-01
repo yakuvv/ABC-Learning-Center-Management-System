@@ -122,17 +122,7 @@ def _ensure_student_contact_info_column(conn):
     conn.commit()
 
 
-def _ensure_student_program_column(conn):
-    """Ensure the program column exists in the STUDENT table."""
-    table = conn.execute(
-        "SELECT 1 FROM sqlite_master WHERE type='table' AND name='STUDENT'"
-    ).fetchone()
-    if not table:
-        return
-    cols = [row[1] for row in conn.execute("PRAGMA table_info(STUDENT)")]
-    if "program" not in cols:
-        conn.execute("ALTER TABLE STUDENT ADD COLUMN program TEXT")
-    conn.commit()
+
 
 
 def _ensure_pricing_columns(conn):
@@ -205,7 +195,6 @@ def get_connection():
         _ensure_grade_columns(conn)
         _ensure_parent_contact_info_column(conn)
         _ensure_student_contact_info_column(conn)
-        _ensure_student_program_column(conn)
         _migrations_done = True
     return conn
 
@@ -273,8 +262,7 @@ def init_database():
         dob DATE NOT NULL,
         address TEXT,
         studContactInfo TEXT,
-        level TEXT NOT NULL,
-        program TEXT
+        level TEXT NOT NULL
     )''')
 
     cursor.execute('''
@@ -310,7 +298,6 @@ def init_database():
         subjectID INTEGER PRIMARY KEY AUTOINCREMENT,
         subjCode TEXT NOT NULL,
         subjectName TEXT NOT NULL,
-        description TEXT,
         level TEXT NOT NULL,
         pricePerTerm REAL,
         isActive INTEGER DEFAULT 1
@@ -319,7 +306,6 @@ def init_database():
     cursor.execute('''
     CREATE TABLE IF NOT EXISTS BATCH (
         batchID INTEGER PRIMARY KEY AUTOINCREMENT,
-        batchCode TEXT UNIQUE NOT NULL,
         subjectID INTEGER NOT NULL,
         level TEXT NOT NULL,
         schedule TEXT NOT NULL,
