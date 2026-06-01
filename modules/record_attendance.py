@@ -121,35 +121,39 @@ class RecordAttendance(ctk.CTkFrame):
         self.create_ui()
 
     def _combo(self, parent, values, **kwargs):
+        kwargs.setdefault("height", 30)
         return ModernCombo(parent, values=values, **kwargs)
 
     def _batch_combo(self, parent, is_history=False, **kwargs):
+        kwargs.setdefault("height", 30)
         def open_popup():
             self.open_batch_popup(is_history)
         return BatchPickerCombo(parent, on_open_popup=open_popup, **kwargs)
 
     def _subject_combo(self, parent, **kwargs):
+        kwargs.setdefault("height", 30)
         def open_popup():
             self.open_subject_popup()
         return BatchPickerCombo(parent, on_open_popup=open_popup, **kwargs)
 
     def _subject_combo_history(self, parent, **kwargs):
+        kwargs.setdefault("height", 30)
         def open_popup():
             self.open_subject_popup_history()
         return BatchPickerCombo(parent, on_open_popup=open_popup, **kwargs)
 
-    def _card_frame(self, parent, height=None):
+    def _card_frame(self, parent, height=None, inner_pady=8, accent_pady=12):
         kw = {"height": height} if height else {}
         card = ctk.CTkFrame(parent, fg_color="#ffffff", corner_radius=16, border_width=1, border_color="#cbd5e1", **kw)
         
         accent_container = ctk.CTkFrame(card, width=6, fg_color="transparent")
-        accent_container.pack(side="left", fill="y", padx=(12, 0), pady=12)
+        accent_container.pack(side="left", fill="y", padx=(12, 0), pady=accent_pady)
         
         accent = ctk.CTkFrame(accent_container, width=6, fg_color="#15165e", corner_radius=3)
         accent.pack(fill="both", expand=True)
 
         inner = ctk.CTkFrame(card, fg_color="transparent")
-        inner.pack(fill="both", expand=True, padx=12, pady=8)
+        inner.pack(fill="both", expand=True, padx=12, pady=inner_pady)
         return card, inner
 
     def create_ui(self):
@@ -236,14 +240,14 @@ class RecordAttendance(ctk.CTkFrame):
 
         def section_label(parent, text, row):
             lbl = ctk.CTkLabel(parent, text=text,
-                               font=ctk.CTkFont(family="Inter", size=15, weight="bold"),
+                               font=ctk.CTkFont(family="Inter", size=13, weight="bold"),
                                text_color="black")
-            lbl.grid(row=row, column=0, sticky="w", pady=(8, 2))
+            lbl.grid(row=row, column=0, sticky="w", pady=(4, 1))
             return lbl
 
         # LEVEL Dropdown
         self.class_lbl = section_label(left_panel, "LEVEL", 0)
-        self.class_card, class_inner = self._card_frame(left_panel, height=50)
+        self.class_card, class_inner = self._card_frame(left_panel, height=38, inner_pady=3, accent_pady=4)
         self.class_card.grid(row=1, column=0, sticky="ew")
         self.class_card.pack_propagate(False)
         self.class_combo = self._combo(class_inner, [f"Grade {i}" for i in range(1, 13)], command=self.on_class_changed)
@@ -251,7 +255,7 @@ class RecordAttendance(ctk.CTkFrame):
 
         # TERM Dropdown
         self.term_label_widget = section_label(left_panel, "TERM", 2)
-        self.term_card, term_inner = self._card_frame(left_panel, height=50)
+        self.term_card, term_inner = self._card_frame(left_panel, height=38, inner_pady=3, accent_pady=4)
         self.term_card.grid(row=3, column=0, sticky="ew")
         self.term_card.pack_propagate(False)
         self.term_combo = self._combo(term_inner, [], command=self.on_term_changed)
@@ -259,7 +263,7 @@ class RecordAttendance(ctk.CTkFrame):
 
         # SUBJECT picker card
         self.subject_lbl = section_label(left_panel, "SUBJECT", 4)
-        self.subject_card, subject_inner = self._card_frame(left_panel, height=50)
+        self.subject_card, subject_inner = self._card_frame(left_panel, height=38, inner_pady=3, accent_pady=4)
         self.subject_card.grid(row=5, column=0, sticky="ew")
         self.subject_card.pack_propagate(False)
         self.subject_combo = self._subject_combo(subject_inner)
@@ -267,7 +271,7 @@ class RecordAttendance(ctk.CTkFrame):
 
         # BATCH Dropdown (batch-first attendance)
         self.batch_lbl = section_label(left_panel, "BATCH", 6)
-        self.batch_card, batch_inner = self._card_frame(left_panel, height=50)
+        self.batch_card, batch_inner = self._card_frame(left_panel, height=38, inner_pady=3, accent_pady=4)
         self.batch_card.grid(row=7, column=0, sticky="ew")
         self.batch_card.pack_propagate(False)
         self.batch_combo = self._batch_combo(batch_inner, is_history=False, command=self.on_batch_changed)
@@ -276,15 +280,15 @@ class RecordAttendance(ctk.CTkFrame):
         # OK button trigger
         self.ok_btn = ctk.CTkButton(left_panel, text="OK",
                                     font=ctk.CTkFont(family="Inter", size=13, weight="bold"),
-                                    height=40, corner_radius=8,
+                                    height=34, corner_radius=8,
                                     fg_color="#122aff", hover_color="#0b1eb3", text_color="#ffffff",
                                     command=self.on_ok_clicked)
-        self.ok_btn.grid(row=8, column=0, sticky="ew", pady=(15, 0))
+        self.ok_btn.grid(row=8, column=0, sticky="ew", pady=(10, 0))
 
         # CLASS DETAILS Card
         self.details_lbl = section_label(left_panel, "CLASS DETAILS", 9)
-        self.details_card, self.details_inner = self._card_frame(left_panel)
-        self.details_card.grid(row=10, column=0, sticky="nsew", pady=(0, 5))
+        self.details_card, self.details_inner = self._card_frame(left_panel, inner_pady=6, accent_pady=6)
+        self.details_card.grid(row=10, column=0, sticky="nsew", pady=(0, 0))
 
         details_frame = ctk.CTkFrame(self.details_inner, fg_color="transparent")
         details_frame.pack(fill="both", expand=True)
@@ -304,21 +308,21 @@ class RecordAttendance(ctk.CTkFrame):
                 details_frame, text=f"{label}:",
                 font=ctk.CTkFont(family="Inter", size=13, weight="bold"),
                 text_color="#15165e",
-            ).grid(row=i, column=0, sticky="w", pady=6)
+            ).grid(row=i, column=0, sticky="w", pady=2)
 
             val_lbl = ctk.CTkLabel(
                 details_frame, text=val,
                 font=ctk.CTkFont(family="Inter", size=13),
                 text_color="#1e293b",
             )
-            val_lbl.grid(row=i, column=1, sticky="w", padx=(20, 0), pady=6)
+            val_lbl.grid(row=i, column=1, sticky="w", padx=(15, 0), pady=2)
             self.class_detail_labels[label] = val_lbl
 
         left_panel.columnconfigure(0, weight=1)
         left_panel.rowconfigure(10, weight=1)
 
         # ── RIGHT PANEL (ROSTER) ─────────────────────────────────────────────
-        right_panel = ctk.CTkFrame(split_body, fg_color="transparent")
+        right_panel = ctk.CTkFrame(split_body, fg_color="transparent", width=480)
         right_panel.pack(side="right", fill="both", expand=True, padx=(20, 0))
 
         # Header for Right Panel containing STUDENTS label on left and military live time on right
@@ -345,15 +349,15 @@ class RecordAttendance(ctk.CTkFrame):
         self.hdr = ctk.CTkFrame(self.roster_scroll, fg_color="transparent")
         self.hdr.pack(fill="x", pady=(0, 6))
 
-        self.hdr.grid_columnconfigure(0, minsize=35)  # index
-        self.hdr.grid_columnconfigure(1, minsize=35)  # P
-        self.hdr.grid_columnconfigure(2, minsize=35)  # A
-        self.hdr.grid_columnconfigure(3, minsize=35)  # L
-        self.hdr.grid_columnconfigure(4, weight=3)    # Last Name
-        self.hdr.grid_columnconfigure(5, weight=3)    # First Name
-        self.hdr.grid_columnconfigure(6, weight=1)    # Middle Name
-        self.hdr.grid_columnconfigure(7, minsize=80)  # Status (fixed)
-        self.hdr.grid_columnconfigure(8, minsize=65)  # Time (fixed)
+        self.hdr.grid_columnconfigure(0, minsize=35)   # index
+        self.hdr.grid_columnconfigure(1, minsize=35)   # P
+        self.hdr.grid_columnconfigure(2, minsize=35)   # A
+        self.hdr.grid_columnconfigure(3, minsize=35)   # L
+        self.hdr.grid_columnconfigure(4, weight=1)     # Last Name
+        self.hdr.grid_columnconfigure(5, weight=1)     # First Name
+        self.hdr.grid_columnconfigure(6, weight=1, minsize=65)  # Middle Name
+        self.hdr.grid_columnconfigure(7, minsize=120)  # Status (fixed)
+        self.hdr.grid_columnconfigure(8, minsize=85)   # Time (fixed)
 
         ctk.CTkLabel(self.hdr, text="#", font=ctk.CTkFont(family="Inter", size=12, weight="bold"), text_color="#475569", width=35).grid(row=0, column=0, padx=2)
         ctk.CTkLabel(self.hdr, text="P", font=ctk.CTkFont(family="Inter", size=13, weight="bold"), text_color="#00bf63", width=35).grid(row=0, column=1, padx=2)
@@ -1246,11 +1250,11 @@ class RecordAttendance(ctk.CTkFrame):
             row_frame.grid_columnconfigure(1, minsize=35)
             row_frame.grid_columnconfigure(2, minsize=35)
             row_frame.grid_columnconfigure(3, minsize=35)
-            row_frame.grid_columnconfigure(4, weight=3)
-            row_frame.grid_columnconfigure(5, weight=3)
-            row_frame.grid_columnconfigure(6, weight=1)
-            row_frame.grid_columnconfigure(7, minsize=80)
-            row_frame.grid_columnconfigure(8, minsize=65)
+            row_frame.grid_columnconfigure(4, weight=1)
+            row_frame.grid_columnconfigure(5, weight=1)
+            row_frame.grid_columnconfigure(6, weight=1, minsize=65)
+            row_frame.grid_columnconfigure(7, minsize=120)
+            row_frame.grid_columnconfigure(8, minsize=85)
 
             ctk.CTkLabel(row_frame, text=str(idx + 1),
                          font=ctk.CTkFont(family="Inter", size=13, weight="bold"),
@@ -1290,7 +1294,7 @@ class RecordAttendance(ctk.CTkFrame):
                          font=ctk.CTkFont(family="Inter", size=12, weight="bold"),
                          text_color="#475569", anchor="w").grid(row=0, column=6, padx=10, pady=10, sticky="w")
 
-            status_box = ctk.CTkFrame(row_frame, fg_color="#f1f5f9", width=70, height=22, corner_radius=11)
+            status_box = ctk.CTkFrame(row_frame, fg_color="#f1f5f9", width=70, height=22, corner_radius=8)
             status_box.grid(row=0, column=7, padx=5, pady=10)
             status_box.pack_propagate(False)
             status_lbl = ctk.CTkLabel(status_box, text="",
@@ -1327,21 +1331,21 @@ class RecordAttendance(ctk.CTkFrame):
             time_lbl.configure(text=click_time, text_color="#0f172a")
             self.attendance_times[detail_key] = click_time
             if row_frame:
-                row_frame.configure(border_color="#00bf63", border_width=2)
+                row_frame.configure(border_color="#00bf63", border_width=1)
         elif a_var.get():
             status_box.configure(fg_color="#e20000")
             status_lbl.configure(text="ABSENT", text_color="white")
             time_lbl.configure(text=click_time, text_color="#0f172a")
             self.attendance_times[detail_key] = click_time
             if row_frame:
-                row_frame.configure(border_color="#e20000", border_width=2)
+                row_frame.configure(border_color="#e20000", border_width=1)
         elif l_var.get():
             status_box.configure(fg_color="#122aff")
             status_lbl.configure(text="LATE", text_color="white")
             time_lbl.configure(text=click_time, text_color="#0f172a")
             self.attendance_times[detail_key] = click_time
             if row_frame:
-                row_frame.configure(border_color="#122aff", border_width=2)
+                row_frame.configure(border_color="#122aff", border_width=1)
         else:
             status_box.configure(fg_color="#f1f5f9")
             status_lbl.configure(text="", text_color="#64748b")
@@ -1446,14 +1450,14 @@ class RecordAttendance(ctk.CTkFrame):
 
         def section_label(parent, text, row):
             lbl = ctk.CTkLabel(parent, text=text,
-                               font=ctk.CTkFont(family="Inter", size=15, weight="bold"),
+                               font=ctk.CTkFont(family="Inter", size=13, weight="bold"),
                                text_color="black")
-            lbl.grid(row=row, column=0, sticky="w", pady=(8, 2))
+            lbl.grid(row=row, column=0, sticky="w", pady=(4, 1))
             return lbl
 
         # LEVEL
         section_label(left_panel, "LEVEL", 0)
-        h_class_card, h_class_inner = self._card_frame(left_panel, height=50)
+        h_class_card, h_class_inner = self._card_frame(left_panel, height=38, inner_pady=3, accent_pady=4)
         h_class_card.grid(row=1, column=0, sticky="ew")
         h_class_card.pack_propagate(False)
         self.h_class = self._combo(h_class_inner, [f"Grade {i}" for i in range(1, 13)])
@@ -1461,7 +1465,7 @@ class RecordAttendance(ctk.CTkFrame):
 
         # TERM
         section_label(left_panel, "TERM", 2)
-        h_term_card, h_term_inner = self._card_frame(left_panel, height=50)
+        h_term_card, h_term_inner = self._card_frame(left_panel, height=38, inner_pady=3, accent_pady=4)
         h_term_card.grid(row=3, column=0, sticky="ew")
         h_term_card.pack_propagate(False)
         self.h_term = self._combo(h_term_inner, [])
@@ -1469,7 +1473,7 @@ class RecordAttendance(ctk.CTkFrame):
 
         # SUBJECT
         section_label(left_panel, "SUBJECT", 4)
-        h_subject_card, h_subject_inner = self._card_frame(left_panel, height=50)
+        h_subject_card, h_subject_inner = self._card_frame(left_panel, height=38, inner_pady=3, accent_pady=4)
         h_subject_card.grid(row=5, column=0, sticky="ew")
         h_subject_card.pack_propagate(False)
         self.h_subject = self._subject_combo_history(h_subject_inner)
@@ -1477,7 +1481,7 @@ class RecordAttendance(ctk.CTkFrame):
 
         # BATCH
         section_label(left_panel, "BATCH", 6)
-        h_batch_card, h_batch_inner = self._card_frame(left_panel, height=50)
+        h_batch_card, h_batch_inner = self._card_frame(left_panel, height=38, inner_pady=3, accent_pady=4)
         h_batch_card.grid(row=7, column=0, sticky="ew")
         h_batch_card.pack_propagate(False)
         self.h_batch = self._batch_combo(h_batch_inner, is_history=True, command=lambda *_: self.update_combo_style(self.h_batch))
@@ -1486,14 +1490,14 @@ class RecordAttendance(ctk.CTkFrame):
         # SEARCH button
         ctk.CTkButton(left_panel, text="SEARCH",
                       font=ctk.CTkFont(family="Inter", size=13, weight="bold"),
-                      height=40, corner_radius=8,
+                      height=34, corner_radius=8,
                       fg_color="#122aff", hover_color="#0b1eb3", text_color="#ffffff",
                       command=lambda: self.load_history(
                           self.h_class.get(),
                           self.h_term.get(),
                           self.h_batch.get(),
                           stats_frame, tree)
-                      ).grid(row=8, column=0, sticky="ew", pady=(15, 0))
+                      ).grid(row=8, column=0, sticky="ew", pady=(10, 0))
 
         left_panel.columnconfigure(0, weight=1)
 
@@ -1585,7 +1589,7 @@ class RecordAttendance(ctk.CTkFrame):
         self.h_batch.set("")
 
         # ── RIGHT PANEL ───────────────────────────────────────────────────────
-        right_panel = ctk.CTkFrame(split_body, fg_color="transparent")
+        right_panel = ctk.CTkFrame(split_body, fg_color="transparent", width=480)
         right_panel.pack(side="right", fill="both", expand=True, padx=(20, 0))
 
         ctk.CTkLabel(right_panel, text="ATTENDANCE RECORDS",
