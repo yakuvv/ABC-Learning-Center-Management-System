@@ -122,6 +122,96 @@ def _ensure_student_contact_info_column(conn):
     conn.commit()
 
 
+def _ensure_staff_contact_info_column(conn):
+    # I recreate the STAFF table without the old email column and add staffContactInfo and staffMname.
+    table = conn.execute(
+        "SELECT 1 FROM sqlite_master WHERE type='table' AND name='STAFF'"
+    ).fetchone()
+    if not table:
+        return
+    cols = [row[1] for row in conn.execute("PRAGMA table_info(STAFF)")]
+    # If old email column exists, recreate table without it
+    if "email" in cols:
+        # Get existing data
+        existing_data = conn.execute("SELECT staffID, staffFname, staffLname, password, staffContactInfo, staffMname FROM STAFF").fetchall()
+        # Disable foreign keys to allow dropping the table
+        conn.execute("PRAGMA foreign_keys = OFF")
+        # Drop old table
+        conn.execute("DROP TABLE STAFF")
+        # Create new table with correct schema
+        conn.execute('''
+            CREATE TABLE STAFF (
+                staffID INTEGER PRIMARY KEY AUTOINCREMENT,
+                staffFname TEXT NOT NULL,
+                staffLname TEXT NOT NULL,
+                staffMname TEXT,
+                staffContactInfo TEXT,
+                password TEXT NOT NULL
+            )
+        ''')
+        # Reinsert data
+        for row in existing_data:
+            conn.execute(
+                "INSERT INTO STAFF (staffID, staffFname, staffLname, password, staffContactInfo, staffMname) VALUES (?, ?, ?, ?, ?, ?)",
+                row
+            )
+        # Re-enable foreign keys
+        conn.execute("PRAGMA foreign_keys = ON")
+        conn.commit()
+    else:
+        # Just add missing columns if table already has correct structure
+        if "staffContactInfo" not in cols:
+            conn.execute("ALTER TABLE STAFF ADD COLUMN staffContactInfo TEXT")
+        if "staffMname" not in cols:
+            conn.execute("ALTER TABLE STAFF ADD COLUMN staffMname TEXT")
+        conn.commit()
+
+
+def _ensure_tutor_contact_info_column(conn):
+    # I recreate the TUTOR table without the old tutorEmail column and add tutorContactInfo and tutorMname.
+    table = conn.execute(
+        "SELECT 1 FROM sqlite_master WHERE type='table' AND name='TUTOR'"
+    ).fetchone()
+    if not table:
+        return
+    cols = [row[1] for row in conn.execute("PRAGMA table_info(TUTOR)")]
+    # If old tutorEmail column exists, recreate table without it
+    if "tutorEmail" in cols:
+        # Get existing data
+        existing_data = conn.execute("SELECT tutorID, tutorFname, tutorLname, password, tutorContactInfo, tutorMname FROM TUTOR").fetchall()
+        # Disable foreign keys to allow dropping the table
+        conn.execute("PRAGMA foreign_keys = OFF")
+        # Drop old table
+        conn.execute("DROP TABLE TUTOR")
+        # Create new table with correct schema
+        conn.execute('''
+            CREATE TABLE TUTOR (
+                tutorID INTEGER PRIMARY KEY AUTOINCREMENT,
+                tutorFname TEXT NOT NULL,
+                tutorLname TEXT NOT NULL,
+                tutorMname TEXT,
+                tutorContactInfo TEXT,
+                password TEXT NOT NULL
+            )
+        ''')
+        # Reinsert data
+        for row in existing_data:
+            conn.execute(
+                "INSERT INTO TUTOR (tutorID, tutorFname, tutorLname, password, tutorContactInfo, tutorMname) VALUES (?, ?, ?, ?, ?, ?)",
+                row
+            )
+        # Re-enable foreign keys
+        conn.execute("PRAGMA foreign_keys = ON")
+        conn.commit()
+    else:
+        # Just add missing columns if table already has correct structure
+        if "tutorContactInfo" not in cols:
+            conn.execute("ALTER TABLE TUTOR ADD COLUMN tutorContactInfo TEXT")
+        if "tutorMname" not in cols:
+            conn.execute("ALTER TABLE TUTOR ADD COLUMN tutorMname TEXT")
+        conn.commit()
+
+
 
 
 
@@ -195,6 +285,8 @@ def get_connection():
         _ensure_grade_columns(conn)
         _ensure_parent_contact_info_column(conn)
         _ensure_student_contact_info_column(conn)
+        _ensure_staff_contact_info_column(conn)
+        _ensure_tutor_contact_info_column(conn)
         _migrations_done = True
     return conn
 
@@ -280,7 +372,8 @@ def init_database():
         staffID INTEGER PRIMARY KEY AUTOINCREMENT,
         staffFname TEXT NOT NULL,
         staffLname TEXT NOT NULL,
-        email TEXT UNIQUE NOT NULL,
+        staffMname TEXT,
+        staffContactInfo TEXT,
         password TEXT NOT NULL
     )''')
 
@@ -289,7 +382,8 @@ def init_database():
         tutorID INTEGER PRIMARY KEY AUTOINCREMENT,
         tutorFname TEXT NOT NULL,
         tutorLname TEXT NOT NULL,
-        tutorEmail TEXT UNIQUE NOT NULL,
+        tutorMname TEXT,
+        tutorContactInfo TEXT,
         password TEXT NOT NULL
     )''')
 

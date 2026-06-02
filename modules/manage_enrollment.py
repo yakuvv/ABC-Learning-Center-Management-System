@@ -1114,7 +1114,8 @@ class ManageEnrollment(ctk.CTkFrame):
     def _insert_enrollment_rows(self, rows):
         for idx, row in enumerate(rows):
             full_name = f"{row['studLname']}, {row['studFname']} {row['studMname'] or ''}".strip()
-            staff_name = f"{row['staffFname']} {row['staffLname']}" if row['staffFname'] else "—"
+            mname = f" {row['staffMname'][0]}." if row['staffMname'] else ""
+            staff_name = f"{row['staffFname']}{mname} {row['staffLname']}" if row['staffFname'] else "—"
             tag = "evenrow" if idx % 2 == 0 else "oddrow"
             self.tree.insert(
                 "",
@@ -1137,7 +1138,7 @@ class ManageEnrollment(ctk.CTkFrame):
         return f"""
             SELECT r.learnerID, r.level, r.term, r.regStatus,
                    s.studentID, s.studFname, s.studLname, s.studMname,
-                   st.staffFname, st.staffLname,
+                   st.staffFname, st.staffMname, st.staffLname,
                    (
                      SELECT GROUP_CONCAT(DISTINCT b.batchLabel)
                      FROM REGISTRATION_DETAIL rd

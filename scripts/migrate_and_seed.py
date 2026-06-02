@@ -25,12 +25,12 @@ def drop_all_tables(cursor):
 
 def seed_staff_and_tutor(cursor):
     cursor.execute('''
-        INSERT OR IGNORE INTO STAFF (staffFname, staffLname, email, password)
-        VALUES ('Vince', 'Oñate', 'admin', 'ilovecpu')
+        INSERT OR IGNORE INTO STAFF (staffFname, staffLname, staffMname, staffContactInfo, password)
+        VALUES ('Vince', 'Oñate', 'A.', 'vince.onate@abclearning.com', 'ilovecpu')
     ''')
     cursor.execute('''
-        INSERT OR IGNORE INTO TUTOR (tutorFname, tutorLname, tutorEmail, password)
-        VALUES ('Maria', 'Santos', 'tutor', 'iloveccs')
+        INSERT OR IGNORE INTO TUTOR (tutorFname, tutorLname, tutorMname, tutorContactInfo, password)
+        VALUES ('Maria', 'Santos', 'C.', 'maria.santos@abclearning.com', 'iloveccs')
     ''')
 
 

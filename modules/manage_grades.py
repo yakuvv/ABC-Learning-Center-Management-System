@@ -1225,13 +1225,14 @@ class ManageGrades(ctk.CTkFrame):
             try:
                 conn = database.get_connection()
                 cursor = conn.cursor()
-                cursor.execute("SELECT tutorFname, tutorLname FROM TUTOR LIMIT 1")
+                cursor.execute("SELECT tutorFname, tutorMname, tutorLname FROM TUTOR LIMIT 1")
                 tutor_row = cursor.fetchone()
                 conn.close()
 
                 tutor_name = "—"
                 if tutor_row:
-                    tutor_name = f"{tutor_row['tutorFname']} {tutor_row['tutorLname']}"
+                    mname = f" {tutor_row['tutorMname'][0]}." if tutor_row['tutorMname'] else ""
+                    tutor_name = f"{tutor_row['tutorFname']}{mname} {tutor_row['tutorLname']}"
 
                 grades_data = [{
                     'name':      full_name,
@@ -1648,14 +1649,14 @@ class ManageGrades(ctk.CTkFrame):
             try:
                 conn = database.get_connection()
                 cursor = conn.cursor()
-                cursor.execute("SELECT tutorFname, tutorLname FROM TUTOR LIMIT 1")
+                cursor.execute("SELECT tutorFname, tutorMname, tutorLname FROM TUTOR LIMIT 1")
                 tutor_row = cursor.fetchone()
                 conn.close()
 
                 tutor_name = "—"
                 if tutor_row:
-                    tutor_name = (f"{tutor_row['tutorFname']}"
-                                  f" {tutor_row['tutorLname']}")
+                    mname = f" {tutor_row['tutorMname'][0]}." if tutor_row['tutorMname'] else ""
+                    tutor_name = f"{tutor_row['tutorFname']}{mname} {tutor_row['tutorLname']}"
 
                 grades_data = []
                 for s in self.loaded_students_list:
