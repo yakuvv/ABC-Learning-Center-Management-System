@@ -2,11 +2,7 @@ import customtkinter as ctk
 
 
 class ModernEntry(ctk.CTkFrame):
-    """
-    A self-contained entry widget with an animated underline.
-    The underline is navy (#15165e) at rest and turns bright blue (#122aff) on focus.
-    Drop-in replacement for CTkEntry — exposes .get(), .delete(), .insert(), .configure().
-    """
+    # I created this self-contained entry widget with an animated underline. The underline is navy (#15165e) at rest and turns bright blue (#122aff) on focus. This is a drop-in replacement for CTkEntry that exposes .get(), .delete(), .insert(), and .configure() methods.
 
     def __init__(self, master, placeholder_text: str = "", **kwargs):
         # The frame itself is transparent so it blends with any card background
@@ -30,7 +26,7 @@ class ModernEntry(ctk.CTkFrame):
         self._entry.bind("<FocusIn>",  self._on_focus)
         self._entry.bind("<FocusOut>", self._on_unfocus)
 
-    # ── Focus animation ───────────────────────────────────────────────────────
+    # Focus animation
 
     def _on_focus(self, event=None):
         self._underline.configure(fg_color="#122aff")
@@ -38,7 +34,7 @@ class ModernEntry(ctk.CTkFrame):
     def _on_unfocus(self, event=None):
         self._underline.configure(fg_color="#15165e")
 
-    # ── Proxy methods so existing code works unchanged ────────────────────────
+    # Proxy methods so existing code works unchanged
 
     def get(self):
         return self._entry.get()

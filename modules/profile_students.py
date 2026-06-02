@@ -9,7 +9,7 @@ from utils.modern_combo import ModernCombo
 
 
 class DatePickerCombo(ModernCombo):
-    """ModernCombo appearance; opens a calendar popup instead of a value list."""
+    # I created this combo with a ModernCombo appearance that opens a calendar popup instead of a value list.
 
     def __init__(self, master, on_open_calendar, placeholder_text="Date of Birth (MM-DD-YYYY)", **kwargs):
         kwargs.setdefault("values", [""])

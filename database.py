@@ -16,7 +16,7 @@ GRADE_TERM_PRICES = {
 
 
 def price_for_level(level: str) -> float:
-    """Return tuition per subject per term for a grade level string (e.g. 'Grade 5')."""
+    # I return the tuition per subject per term for a grade level string (e.g. 'Grade 5').
     if not level:
         return 0.0
     digits = "".join(ch for ch in level if ch.isdigit())
@@ -58,7 +58,7 @@ def _ensure_attendance_time_column(conn):
 
 
 def _ensure_grade_columns(conn):
-    """Add letterGrade and gradeDesc to GRADE if they don't exist yet."""
+    # I add letterGrade and gradeDesc columns to the GRADE table if they don't exist yet.
     table = conn.execute(
         "SELECT 1 FROM sqlite_master WHERE type='table' AND name='GRADE'"
     ).fetchone()
@@ -73,7 +73,7 @@ def _ensure_grade_columns(conn):
 
 
 def _ensure_parent_contact_info_column(conn):
-    """Merge parContactNo and parEmail into a single parContactInfo TEXT column."""
+    # I merge parContactNo and parEmail into a single parContactInfo TEXT column.
     table = conn.execute(
         "SELECT 1 FROM sqlite_master WHERE type='table' AND name='PARENT'"
     ).fetchone()
@@ -98,7 +98,7 @@ def _ensure_parent_contact_info_column(conn):
 
 
 def _ensure_student_contact_info_column(conn):
-    """Merge studContactNo and studEmail into a single studContactInfo TEXT column."""
+    # I merge studContactNo and studEmail into a single studContactInfo TEXT column.
     table = conn.execute(
         "SELECT 1 FROM sqlite_master WHERE type='table' AND name='STUDENT'"
     ).fetchone()
@@ -126,7 +126,7 @@ def _ensure_student_contact_info_column(conn):
 
 
 def _ensure_pricing_columns(conn):
-    """Add pricePerTerm / feeAmount and backfill from grade-level pricing."""
+    # I add pricePerTerm and feeAmount columns and backfill them from grade-level pricing.
     if not conn.execute(
         "SELECT 1 FROM sqlite_master WHERE type='table' AND name='SUBJECT'"
     ).fetchone():
@@ -200,7 +200,7 @@ def get_connection():
 
 
 def generate_learner_id(term: str = "") -> str:
-    """Generate Learner ID: RANDOM2-RANDOM4-RANDOM4 (e.g. 47-3821-9056). term is unused (kept for callers)."""
+    # I generate a Learner ID in the format RANDOM2-RANDOM4-RANDOM4 (e.g. 47-3821-9056). The term parameter is unused but kept for compatibility.
     for _ in range(100):
         learner_id = (
             f"{random.randint(10, 99)}-"
@@ -220,7 +220,7 @@ def generate_learner_id(term: str = "") -> str:
 
 
 def clear_all_data(db_path: str | None = None):
-    """Remove all rows from every table; keeps schema intact."""
+    # I remove all rows from every table while keeping the schema intact.
     path = db_path or DB_NAME
     tables = [
         "RECEIPT", "PAYMENT", "GRADE", "ATTENDANCE",
@@ -246,7 +246,7 @@ def clear_all_data(db_path: str | None = None):
 
 
 def init_database():
-    """Initializes the database with the current schema."""
+    # I initialize the database with the current schema.
     conn = get_connection()
     cursor = conn.cursor()
 

@@ -22,10 +22,7 @@ def _receipt_payment_lines(r):
 
 
 def generate_receipt_pdf(filepath, r):
-    """
-    Generate an official receipt PDF.
-    r keys: receipt_number, date, amount, amount_tendered, change_due, method, ...
-    """
+    # I generate an official receipt PDF with the provided payment details.
     doc = SimpleDocTemplate(filepath, pagesize=letter,
                             leftMargin=36, rightMargin=36,
                             topMargin=36, bottomMargin=36)
@@ -145,13 +142,7 @@ def generate_receipt_pdf(filepath, r):
 
 
 def generate_registration_pdf(filepath, s, subjects):
-    """
-    Generate Certificate of Enrollment / Registration Form.
-    s keys: school_id, studLname, studFname, studMname, grade_level, section,
-            gender, dob, address, school_year, term, enrollment_date, staff_name,
-            parent_name, parent_contact_info
-    subjects: list of subject dicts with subjCode, subjectName
-    """
+    # I generate a Certificate of Enrollment / Registration Form with the provided student and subject details.
     doc = SimpleDocTemplate(filepath, pagesize=letter,
                             leftMargin=36, rightMargin=36,
                             topMargin=36, bottomMargin=36)
@@ -299,12 +290,7 @@ def generate_registration_pdf(filepath, s, subjects):
 
 
 def generate_grades_pdf(filepath, f, grades):
-    """
-    Generate Student Grade Sheet (simplified single overall grade per subject).
-    f keys: subject, grade_level, term, school_year, tutor_name, date_printed
-    grades: list of dicts with name, studentID, subjects (list of dicts with
-            subjCode, numeric, letter, description)
-    """
+    # I generate a Student Grade Sheet with simplified single overall grade per subject.
     doc = SimpleDocTemplate(filepath, pagesize=letter,
                             leftMargin=36, rightMargin=36,
                             topMargin=36, bottomMargin=36)
@@ -357,7 +343,7 @@ def generate_grades_pdf(filepath, f, grades):
         spaceAfter=4
     )
 
-    # ── Header ───────────────────────────────────────────────────────────────
+    # Header
     story.append(Paragraph("ABC Learning Center", title_style))
     story.append(Paragraph("OFFICIAL CLASS GRADE SHEET", subtitle_style))
 
@@ -370,7 +356,7 @@ def generate_grades_pdf(filepath, f, grades):
     story.append(divider)
     story.append(Spacer(1, 10))
 
-    # ── Sheet meta ───────────────────────────────────────────────────────────
+    # Sheet meta
     details_data = [[
         Paragraph(f"<b>Grade Level:</b> {f['grade_level']}", normal_style),
         Paragraph(f"<b>Term:</b> {f['term']}<br/>"
@@ -385,7 +371,7 @@ def generate_grades_pdf(filepath, f, grades):
     ]))
     story.append(details_table)
 
-    # ── Grading scale legend ─────────────────────────────────────────────────
+    # Grading scale legend
     story.append(Spacer(1, 6))
     legend_data = [[
         Paragraph("<b>Grading Scale:</b>",              bold_style),
@@ -408,7 +394,7 @@ def generate_grades_pdf(filepath, f, grades):
     story.append(legend_table)
     story.append(Spacer(1, 10))
 
-    # ── Student cards ────────────────────────────────────────────────────────
+    # Student cards
     for idx, student in enumerate(grades):
         story.append(Paragraph(
             f"<b>{idx + 1}. {student['name'].upper()}</b>"
@@ -465,7 +451,7 @@ def generate_grades_pdf(filepath, f, grades):
 
     story.append(Spacer(1, 30))
 
-    # ── Signatures ───────────────────────────────────────────────────────────
+    # Signatures
     sig_data = [[
         Paragraph("_____________________________<br/><b>Tutor Signature</b>",
                   normal_style),
@@ -483,14 +469,7 @@ def generate_grades_pdf(filepath, f, grades):
 
 
 def generate_student_report_pdf(filepath, meta, headers, rows, report_type):
-    """
-    Generate a high-fidelity PDF report for a student.
-    meta keys: student_name, learner_id, level, DOB, gender, contact_info, address,
-               parent_name, parent_relationship, parent_contact_info, generated
-    headers: list of column name strings
-    rows: list of lists representing rows of data
-    report_type: one of the 5 report types
-    """
+    # I generate a high-fidelity PDF report for a student with the provided metadata and data.
     doc = SimpleDocTemplate(filepath, pagesize=letter,
                             leftMargin=36, rightMargin=36,
                             topMargin=36, bottomMargin=36)

@@ -1,6 +1,4 @@
-"""
-Generate Reports — Premium module for Admin/Staff to generate, view, and export student reports.
-"""
+# Generate Reports — I created this module for Admin/Staff to generate, view, and export student reports.
 import os
 import tkinter as tk
 import customtkinter as ctk
@@ -42,7 +40,7 @@ class GenerateReports(ctk.CTkFrame):
         self.create_ui()
 
     def create_ui(self):
-        # ── HEADER BAR ────────────────────────────────────────────────────────
+        # Header bar
         self.top_bar = ctk.CTkFrame(self, height=70, fg_color="#15165e", corner_radius=0)
         self.top_bar.pack(fill="x", side="top")
         self.top_bar.pack_propagate(False)
@@ -72,7 +70,7 @@ class GenerateReports(ctk.CTkFrame):
         else:
             ctk.CTkLabel(self.top_bar, text="ABC", font=ctk.CTkFont(family="Inter", size=18, weight="bold"), text_color="#ffffff").pack(side="right", padx=30)
 
-        # ── MAIN BODY CONTENT ──────────────────────────────────────────────────
+        # Main body content
         self.body_container = ctk.CTkFrame(self, fg_color="transparent")
         self.body_container.pack(fill="both", expand=True, padx=40, pady=16)
 
@@ -133,7 +131,7 @@ class GenerateReports(ctk.CTkFrame):
 
         self.show_placeholder()
 
-    # ── PLACEHOLDER STATE ─────────────────────────────────────────────────────
+    # Placeholder state
     def show_placeholder(self):
         for w in self.report_card.winfo_children():
             w.destroy()
@@ -154,7 +152,7 @@ class GenerateReports(ctk.CTkFrame):
             text_color="#64748b", justify="center"
         ).pack()
 
-    # ── RENDER ACTIVE REPORT CONTAINER ────────────────────────────────────────
+    # Render active report container
     def render_report_container(self, r):
         for w in self.report_card.winfo_children():
             w.destroy()
@@ -162,7 +160,7 @@ class GenerateReports(ctk.CTkFrame):
         mname = (f" {r['studMname'][0]}." if r['studMname'] else "")
         full_name = f"{r['studFname']}{mname} {r['studLname']}"
 
-        # ── CARD HEADER BAR ──
+        # Card header bar
         rc_header = ctk.CTkFrame(self.report_card, fg_color="#15165e", corner_radius=8, height=44)
         rc_header.pack(fill="x", side="top", padx=10, pady=(10, 5))
         rc_header.pack_propagate(False)
@@ -198,11 +196,11 @@ class GenerateReports(ctk.CTkFrame):
             text_color="#cbd5e1"
         ).pack(side="right", padx=(10, 0), pady=8)
 
-        # ── DYNAMIC BODY SCROLL CONTAINER ──
+        # Dynamic body scroll container
         self.scroll_container = ctk.CTkScrollableFrame(self.report_card, fg_color="transparent")
         self.scroll_container.pack(fill="both", expand=True, padx=15, pady=(5, 10))
 
-        # ── BOTTOM EXPORT BAR ──
+        # Bottom export bar
         self.bottom_bar = ctk.CTkFrame(self.report_card, fg_color="#f8fafc", height=50)
         self.bottom_bar.pack(fill="x", side="bottom", padx=10, pady=(5, 10))
         self.bottom_bar.pack_propagate(False)
@@ -218,7 +216,7 @@ class GenerateReports(ctk.CTkFrame):
         # Load initial report
         self.load_report_data()
 
-    # ── POPULATE REPORT DATA ──────────────────────────────────────────────────
+    # Populate report data
     def on_report_type_changed(self, *args):
         self.load_report_data()
 
@@ -333,8 +331,7 @@ class GenerateReports(ctk.CTkFrame):
             conn.close()
             messagebox.showerror("Error", f"Failed to load report data: {e}")
 
-    # ── RENDER SPECIFIC TABLES ──────────────────────────────────────────────
-    # ── RENDER SPECIFIC TABLES ──────────────────────────────────────────────
+    # Render specific tables
 
     # 1. Attendance Report Table
     def render_attendance_report(self, rows):
@@ -648,7 +645,7 @@ class GenerateReports(ctk.CTkFrame):
                     text_color=status_color
                 ).pack(padx=8, pady=2)
 
-    # ── KEY EVENTS & SEARCH SUGGESTIONS ───────────────────────────────────────
+    # Key events & search suggestions
     def on_search_key(self, event):
         val = self.search_entry.get().strip()
         if len(val) < 2:
@@ -719,7 +716,7 @@ class GenerateReports(ctk.CTkFrame):
             return
         self.render_report_container(self.current_student_data)
 
-    # ── EXPORT PDF REPORT ─────────────────────────────────────────────────────
+    # Export PDF report
     def export_report_pdf(self):
         if not self.current_student_id:
             messagebox.showwarning("Warning", "No active report generated.")
@@ -866,7 +863,7 @@ class GenerateReports(ctk.CTkFrame):
         except Exception as e:
             messagebox.showerror("Export Failed", f"Failed to export report PDF:\n{str(e)}")
 
-    # ── STUDENT DETAILS POPUP ────────────────────────────────────────────────
+    # Student details popup
     def show_student_detail_popup(self, student_id, learner_id=None):
         try:
             conn = database.get_connection()

@@ -25,7 +25,7 @@ class BatchPickerCombo(ModernCombo):
 
 
 def convert_grade(numeric):
-    """Convert a numeric grade (0-100) to (letter_grade, description) tuple."""
+    # I convert a numeric grade (0-100) to a tuple of (letter_grade, description).
     if numeric >= 95:
         return "A+", "Excellent"
     elif numeric >= 90:
@@ -156,7 +156,7 @@ class ManageGrades(ctk.CTkFrame):
 
     @staticmethod
     def _add_combo_underline(parent, combo):
-        """Navy underline below combo; bright blue on focus."""
+        # I add a navy underline below the combo box that turns bright blue when focused.
         underline = ctk.CTkFrame(parent, height=2, fg_color="#15165e", corner_radius=0)
         underline.pack(fill="x", pady=(0, 2))
 
@@ -170,7 +170,7 @@ class ManageGrades(ctk.CTkFrame):
         combo.bind("<FocusOut>", on_unfocus)
 
     def create_ui(self):
-        # ── Top bar ──────────────────────────────────────────────────────────
+        # Top bar
         top_bar = ctk.CTkFrame(self, height=70, fg_color="#15165e", corner_radius=0)
         top_bar.pack(fill="x", side="top")
         top_bar.pack_propagate(False)
@@ -196,7 +196,7 @@ class ManageGrades(ctk.CTkFrame):
                          font=ctk.CTkFont(family="Inter", size=18, weight="bold"),
                          text_color="#122aff").pack(side="right", padx=30)
 
-        # ── Workspace ────────────────────────────────────────────────────────
+        # Workspace
         main_frame = ctk.CTkFrame(self, fg_color="transparent")
         main_frame.pack(fill="both", expand=True, padx=40, pady=20)
 
@@ -227,7 +227,7 @@ class ManageGrades(ctk.CTkFrame):
         )
         self.ind_tab_btn.pack(side="left", padx=(2, 4), pady=4)
 
-        # ── TAB 1: CLASS GRADING SHEET ───────────────────────────────────────
+        # Tab 1: Class grading sheet
         self.class_tab_frame = ctk.CTkFrame(main_frame, fg_color="transparent")
         self.class_tab_frame.pack(fill="both", expand=True)
 
@@ -377,7 +377,7 @@ class ManageGrades(ctk.CTkFrame):
                       command=self.export_grades_pdf
                       ).pack(side="left")
 
-        # ── TAB 2: INDIVIDUAL STUDENT GRADES ────────────────────────────────
+        # Tab 2: Individual student grades
         self.individual_tab_frame = ctk.CTkFrame(main_frame, fg_color="transparent")
 
         ctk.CTkLabel(
@@ -429,9 +429,7 @@ class ManageGrades(ctk.CTkFrame):
         self.subject_combo_g.set("")
         self.section_combo.set("")
 
-    # ─────────────────────────────────────────────────────────────────────────
     # Tab switching
-    # ─────────────────────────────────────────────────────────────────────────
     def switch_tab(self, tab_target):
         if tab_target == "class":
             self.class_tab_btn.configure(fg_color="#122aff", text_color="#ffffff")
@@ -649,7 +647,7 @@ class ManageGrades(ctk.CTkFrame):
                       font=ctk.CTkFont(family="Inter", size=16, weight="bold"),
                       text_color="#ffffff").pack(side="left", padx=20, pady=15)
 
-        # ── Lightweight scrollable area using plain tkinter ──
+        # Lightweight scrollable area using plain tkinter
         scroll_outer = tk.Frame(popup, bg="#e4e4e4")
         scroll_outer.pack(fill="both", expand=True, padx=20, pady=(10, 5))
 
@@ -684,7 +682,7 @@ class ManageGrades(ctk.CTkFrame):
                 organized[subj] = []
             organized[subj].append((disp, data))
 
-        # ── Build tiles with PLAIN tkinter widgets (fast!) ──
+        # Build tiles with PLAIN tkinter widgets (fast!)
         for subj, batches in organized.items():
             subj_frame = tk.Frame(scroll_inner, bg="#ffffff", bd=1, relief="solid", padx=0, pady=0)
             subj_frame.pack(fill="x", pady=(0, 10), padx=2)
@@ -821,9 +819,7 @@ class ManageGrades(ctk.CTkFrame):
             self.section_combo.configure(values=[])
             self.section_combo.set("")
 
-    # ─────────────────────────────────────────────────────────────────────────
     # Placeholders
-    # ─────────────────────────────────────────────────────────────────────────
     def show_class_placeholder(self):
         for w in self.scroll_container.winfo_children():
             w.destroy()
@@ -846,9 +842,7 @@ class ManageGrades(ctk.CTkFrame):
             justify="center"
         ).pack(expand=True, pady=80)
 
-    # ─────────────────────────────────────────────────────────────────────────
     # Individual tab – search & suggestions
-    # ─────────────────────────────────────────────────────────────────────────
     def on_ind_search_key(self, event):
         val = self.ind_search_entry.get().strip()
         if len(val) < 2:
@@ -907,9 +901,7 @@ class ManageGrades(ctk.CTkFrame):
         self.hide_ind_suggestions()
         self.load_individual_report_card(row)
 
-    # ─────────────────────────────────────────────────────────────────────────
     # Class tab – search & suggestions
-    # ─────────────────────────────────────────────────────────────────────────
     def on_class_search_key(self, event):
         val = self.class_search_entry.get().strip()
         self.filter_class_sheet()
@@ -1008,9 +1000,7 @@ class ManageGrades(ctk.CTkFrame):
         self.class_search_entry.insert(0, learner_id)
         self.filter_class_sheet()
 
-    # ─────────────────────────────────────────────────────────────────────────
     # Individual Report Card
-    # ─────────────────────────────────────────────────────────────────────────
     def reload_rc_semester(self, r):
         selected_term = self.rc_term_combo.get()
         conn = database.get_connection()
@@ -1264,9 +1254,7 @@ class ManageGrades(ctk.CTkFrame):
                 messagebox.showerror("Error",
                                      f"Failed to export report card PDF:\n{e}")
 
-    # ─────────────────────────────────────────────────────────────────────────
     # Class grading sheet – load
-    # ─────────────────────────────────────────────────────────────────────────
     def load_students(self):
         for w in self.scroll_container.winfo_children():
             w.destroy()
@@ -1523,9 +1511,7 @@ class ManageGrades(ctk.CTkFrame):
         except Exception as e:
             messagebox.showerror("Error", f"Failed to load grading sheet:\n{e}")
 
-    # ─────────────────────────────────────────────────────────────────────────
     # Real-time grade conversion
-    # ─────────────────────────────────────────────────────────────────────────
     def update_grade_display(self, detail_id, lbl_letter, lbl_desc):
         """Called on every keystroke – instantly converts numeric → letter/desc."""
         ent = self.grade_entries.get(detail_id)
@@ -1556,9 +1542,7 @@ class ManageGrades(ctk.CTkFrame):
             else:
                 item['widget'].pack_forget()
 
-    # ─────────────────────────────────────────────────────────────────────────
     # Save / lock / unlock
-    # ─────────────────────────────────────────────────────────────────────────
     def save_grades(self):
         if not self.grade_entries:
             messagebox.showwarning("Warning", "No grades loaded to save.")
@@ -1637,9 +1621,7 @@ class ManageGrades(ctk.CTkFrame):
         self.save_btn.configure(state="normal")
         self.edit_btn.pack_forget()
 
-    # ─────────────────────────────────────────────────────────────────────────
     # PDF export (class sheet)
-    # ─────────────────────────────────────────────────────────────────────────
     def export_grades_pdf(self):
         if not hasattr(self, 'loaded_students_list') or not self.loaded_students_list:
             messagebox.showwarning("Warning", "No students loaded to export.")
@@ -1712,7 +1694,6 @@ class ManageGrades(ctk.CTkFrame):
                 messagebox.showerror("Error",
                                      f"Failed to export Grade Sheet PDF:\n{e}")
 
-    # ─────────────────────────────────────────────────────────────────────────
     def show_student_detail_popup(self, student_id, learner_id=None):
         try:
             conn = database.get_connection()
@@ -1839,7 +1820,6 @@ class ManageGrades(ctk.CTkFrame):
                       width=160, height=38, corner_radius=8,
                       command=popup.destroy).pack(anchor="center")
 
-    # ─────────────────────────────────────────────────────────────────────────
     def back_to_dashboard(self):
         dashboard = self.master.master
         self.destroy()

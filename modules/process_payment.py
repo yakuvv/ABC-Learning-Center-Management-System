@@ -51,7 +51,7 @@ class ProcessPayment(ctk.CTkFrame):
         return ModernCombo(parent, values=values, **kwargs)
 
     def _card(self, parent, height=None, scrollable=False):
-        """White card with left accent. Returns (card, inner)."""
+        # I create a white card with a left accent strip and return both the card and its inner frame.
         kw = {"height": height} if height else {}
         card = ctk.CTkFrame(parent, fg_color="#ffffff", corner_radius=16, border_width=1, border_color="#cbd5e1", **kw)
         if height:

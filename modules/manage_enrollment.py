@@ -221,7 +221,7 @@ class ManageEnrollment(ctk.CTkFrame):
         return banner
 
     def _build_batch_tiles(self, parent, subject_id, batches):
-        """Lightweight dropdown selector for batches to keep UI lag-free."""
+        # I created this lightweight dropdown selector for batches to keep the UI responsive and lag-free.
         if not hasattr(self, "_batch_mappings"):
             self._batch_mappings = {}
         if not hasattr(self, "_batch_combos"):

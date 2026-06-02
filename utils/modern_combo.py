@@ -3,11 +3,7 @@ from tkinter import font as tkfont
 
 
 class ModernCombo(ctk.CTkComboBox):
-    """A drop‑in replacement for CTkComboBox with the project's default styling.
-    This subclass avoids the wrapper‑frame approach that caused attribute errors
-    during widget destruction. All standard ComboBox methods (get, set, bind, etc.)
-    are inherited unchanged.
-    """
+    # I created this drop-in replacement for CTkComboBox with the project's default styling. This subclass avoids the wrapper-frame approach that caused attribute errors during widget destruction. All standard ComboBox methods (get, set, bind, etc.) are inherited unchanged.
 
     def __init__(self, master, values=None, command=None, placeholder_text="", **kwargs):
         # Default styling matching the navy‑accented design language
@@ -42,7 +38,7 @@ class ModernCombo(ctk.CTkComboBox):
         self.after_idle(self._apply_placeholder)
 
     def _apply_placeholder(self):
-        """Show gray placeholder text if nothing is selected."""
+        # I show gray placeholder text if nothing is selected.
         try:
             current = self.get()
         except Exception:
@@ -53,7 +49,7 @@ class ModernCombo(ctk.CTkComboBox):
             self.configure(text_color="#b0b0b0")
 
     def set(self, value):
-        """Override set to handle placeholder color."""
+        # I override set to handle placeholder color.
         super().set(value)
         if hasattr(self, "_placeholder"):
             if value and value != self._placeholder:
@@ -62,7 +58,7 @@ class ModernCombo(ctk.CTkComboBox):
                 self.configure(text_color="#b0b0b0")
 
     def _dropdown_callback(self, value: str):
-        """Called when an item is selected from the dropdown menu."""
+        # I am called when an item is selected from the dropdown menu.
         super()._dropdown_callback(value)
         if hasattr(self, "_placeholder"):
             if value and value != self._placeholder:
@@ -71,7 +67,7 @@ class ModernCombo(ctk.CTkComboBox):
                 self.configure(text_color="#b0b0b0")
 
     def _sync_dropdown_width(self):
-        """Match dropdown menu width to combo width via min_character_width."""
+        # I match the dropdown menu width to the combo width via min_character_width.
         if self._dropdown_width == 0:
             pixel_width = self._current_width
             if pixel_width < 20:

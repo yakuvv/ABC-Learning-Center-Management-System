@@ -51,9 +51,9 @@ class Dashboard(ctk.CTkFrame):
         else:
             super().mainloop(*args, **kwargs)
 
-    # ── Shared widget factory (matches modules) ────────────────────────────────
+    # Shared widget factory (matches modules)
     def _card(self, parent, accent_color="#15165e", height=None, show_accent=True):
-        """White card with optional left accent strip. Returns (card, inner)."""
+        # I create a white card with an optional left accent strip and return both the card and its inner frame.
         kw = {"height": height} if height else {}
         card = ctk.CTkFrame(parent, fg_color="#ffffff", corner_radius=16,
                             border_width=1, border_color="#cbd5e1", **kw)
@@ -66,7 +66,7 @@ class Dashboard(ctk.CTkFrame):
         inner.pack(fill="both", expand=True, padx=15, pady=12)
         return card, inner
 
-    # ── Sidebar ───────────────────────────────────────────────────────────────
+    # Sidebar
     def create_dashboard_ui(self):
         self.sidebar = ctk.CTkFrame(self, width=self.sidebar_width, fg_color="#15165e", corner_radius=0)
         self.sidebar.pack(side="left", fill="y")
@@ -175,7 +175,7 @@ class Dashboard(ctk.CTkFrame):
             self.toggle_btn.lift()
         self.sidebar_expanded = not self.sidebar_expanded
 
-    # ── Welcome screen ────────────────────────────────────────────────────────
+    # Welcome screen
     def _show_welcome(self):
         for w in self.main_content.winfo_children():
             w.destroy()

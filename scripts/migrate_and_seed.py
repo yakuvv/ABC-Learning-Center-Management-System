@@ -10,7 +10,7 @@ BACKUP_NAME = os.path.join(os.path.dirname(DB_NAME), "abc_learning_center_backup
 
 
 def drop_all_tables(cursor):
-    """Drop all application tables in FK-safe order."""
+    # I drop all application tables in a foreign-key-safe order.
     tables = [
         "RECEIPT", "PAYMENT", "GRADE", "ATTENDANCE",
         "REGISTRATION_DETAIL", "REGISTRATION",
@@ -73,9 +73,7 @@ def seed_sample_students(cursor):
 
 
 def seed_batches(cursor):
-    """
-    Create 4 active batches per subject (A, B, C, and D), capacity 15.
-    """
+    # I create 4 active batches per subject (A, B, C, and D) with a capacity of 15 students each.
     tutor_row = cursor.execute("SELECT tutorID FROM TUTOR ORDER BY tutorID LIMIT 1").fetchone()
     tutor_id = tutor_row[0] if tutor_row else None
 
@@ -100,7 +98,7 @@ def seed_batches(cursor):
 
 
 def seed_subjects(cursor):
-    """Seed subjects by level, optional program, and termType."""
+    # I seed subjects by grade level, optional program, and term type.
     # Elementary Grade 1-3
     for g in range(1, 4):
         level = f"Grade {g}"

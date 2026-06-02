@@ -5,10 +5,7 @@ from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib import colors
 
 def generate_blank_enrollment_form(filepath):
-    """
-    Generates a print-ready physical enrollment form matching the system flow,
-    consisting only of Sections 1 to 3, plus signatures.
-    """
+    # I generate a print-ready physical enrollment form matching the system flow, consisting only of Sections 1 to 3 plus signatures.
     # Create directory if it doesn't exist
     os.makedirs(os.path.dirname(filepath), exist_ok=True)
     

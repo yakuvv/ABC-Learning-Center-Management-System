@@ -184,7 +184,7 @@ class RecordAttendance(ctk.CTkFrame):
                          font=ctk.CTkFont(family="Inter", size=18, weight="bold"),
                          text_color="#122aff").pack(side="right", padx=30)
 
-        # ── TAB PILL SWITCHER ─────────────────────────────────────────────────
+        # Tab pill switcher
         tab_selector_frame = ctk.CTkFrame(self, fg_color="transparent")
         tab_selector_frame.pack(fill="x", pady=(12, 0))
 
@@ -208,7 +208,7 @@ class RecordAttendance(ctk.CTkFrame):
             command=lambda: self.switch_tab("history"))
         self.history_tab_btn.pack(side="left", padx=(2, 4), pady=4)
 
-        # ── WORKSPACE CONTAINER ───────────────────────────────────────────────
+        # Workspace container
         self.workspace_canvas = ctk.CTkFrame(self, fg_color="transparent")
         self.workspace_canvas.pack(fill="both", expand=True, padx=40, pady=(10, 20))
 
@@ -232,7 +232,7 @@ class RecordAttendance(ctk.CTkFrame):
         split_body = ctk.CTkFrame(self.workspace_canvas, fg_color="transparent")
         split_body.pack(fill="both", expand=True)
 
-        # ── LEFT PANEL ───────────────────────────────────────────────────────
+        # Left panel
         left_panel = ctk.CTkFrame(split_body, fg_color="transparent", width=420)
         left_panel.pack(side="left", fill="y", anchor="nw")
         left_panel.pack_propagate(False)
@@ -321,7 +321,7 @@ class RecordAttendance(ctk.CTkFrame):
         left_panel.columnconfigure(0, weight=1)
         left_panel.rowconfigure(10, weight=1)
 
-        # ── RIGHT PANEL (ROSTER) ─────────────────────────────────────────────
+        # Right panel (roster)
         right_panel = ctk.CTkFrame(split_body, fg_color="transparent", width=480)
         right_panel.pack(side="right", fill="both", expand=True, padx=(20, 0))
 
@@ -472,7 +472,7 @@ class RecordAttendance(ctk.CTkFrame):
         self._selected_batch = matched
 
     def load_batches_for_filters(self):
-        """Load batches for (level, term). Tutor accounts only see their own batches."""
+        # I load batches for the selected level and term. Tutor accounts only see their own assigned batches.
         level = self.class_combo.get().strip()
         term = self.term_combo.get().strip()
         self._batch_display_to_row = {}
@@ -534,7 +534,7 @@ class RecordAttendance(ctk.CTkFrame):
             self.update_combo_style(self.batch_combo)
 
     def _load_history_batches(self, level: str, term: str):
-        """Populate Attendance History batch dropdown for (level, term)."""
+        # I populate the Attendance History batch dropdown for the selected level and term.
         self._h_batch_display_to_row = {}
         self.h_batch.configure(values=[])
         self.h_batch.set("")
@@ -591,7 +591,7 @@ class RecordAttendance(ctk.CTkFrame):
             self.update_combo_style(self.h_batch)
 
     def open_subject_popup(self):
-        """Open a popup showing all subjects for the selected level."""
+        # I open a popup window showing all available subjects for the selected level.
         import tkinter as tk_native
         level = self.class_combo.get().strip()
         term = self.term_combo.get().strip()
@@ -727,7 +727,7 @@ class RecordAttendance(ctk.CTkFrame):
             pass
 
     def open_subject_popup_history(self):
-        """Open a popup showing all subjects for the selected history level."""
+        # I open a popup window showing all subjects for the selected history level.
         import tkinter as tk_native
         level = self.h_class.get().strip()
         term = self.h_term.get().strip()
@@ -912,7 +912,7 @@ class RecordAttendance(ctk.CTkFrame):
                      font=ctk.CTkFont(family="Inter", size=16, weight="bold"),
                      text_color="#ffffff").pack(side="left", padx=20, pady=15)
 
-        # ── Lightweight scrollable area using plain tkinter ──
+        # Lightweight scrollable area using plain tkinter
         scroll_outer = tk_native.Frame(popup, bg="#e4e4e4")
         scroll_outer.pack(fill="both", expand=True, padx=20, pady=(10, 5))
 
@@ -947,7 +947,7 @@ class RecordAttendance(ctk.CTkFrame):
                 organized[subj] = []
             organized[subj].append((disp, data))
 
-        # ── Build tiles with PLAIN tkinter widgets (fast!) ──
+        # Build tiles with PLAIN tkinter widgets (fast!)
         for subj, batches in organized.items():
             subj_frame = tk_native.Frame(scroll_inner, bg="#ffffff", bd=1, relief="solid", padx=0, pady=0)
             subj_frame.pack(fill="x", pady=(0, 10), padx=2)
@@ -1033,7 +1033,7 @@ class RecordAttendance(ctk.CTkFrame):
             pass
 
     def _sync_history_filters_from_record(self):
-        """Apply Record Attendance selections to Attendance History automatically."""
+        # I apply Record Attendance selections to Attendance History automatically.
         if not self._last_record_filters:
             return
         if not hasattr(self, "h_class") or not hasattr(self, "h_term") or not hasattr(self, "h_batch") or not hasattr(self, "h_subject"):
@@ -1442,7 +1442,7 @@ class RecordAttendance(ctk.CTkFrame):
         split_body = ctk.CTkFrame(self.workspace_canvas, fg_color="transparent")
         split_body.pack(fill="both", expand=True)
 
-        # ── LEFT PANEL (same style as Record tab) ────────────────────────────
+        # Left panel (same style as Record tab)
         left_panel = ctk.CTkFrame(split_body, fg_color="transparent", width=420)
         left_panel.pack(side="left", fill="y", anchor="nw")
         left_panel.pack_propagate(False)
@@ -1588,7 +1588,7 @@ class RecordAttendance(ctk.CTkFrame):
         self.h_subject.set("")
         self.h_batch.set("")
 
-        # ── RIGHT PANEL ───────────────────────────────────────────────────────
+        # Right panel
         right_panel = ctk.CTkFrame(split_body, fg_color="transparent", width=480)
         right_panel.pack(side="right", fill="both", expand=True, padx=(20, 0))
 
@@ -1596,7 +1596,7 @@ class RecordAttendance(ctk.CTkFrame):
                      font=ctk.CTkFont(family="Inter", size=15, weight="bold"),
                      text_color="black").pack(anchor="w", pady=(0, 6))
 
-        # ── TABLE ────────────────────────────────────────────────────────────
+        # Table
         table_card = ctk.CTkFrame(right_panel, fg_color="#ffffff",
                                   corner_radius=16, border_width=1, border_color="#cbd5e1")
         table_card.pack(fill="both", expand=True)
@@ -1651,7 +1651,7 @@ class RecordAttendance(ctk.CTkFrame):
         sb.grid(row=0, column=1, sticky="ns")
         self.after_idle(self._fit_history_tree_columns)
 
-        # ── SUMMARY STATS ────────────────────────────────────────────────────
+        # Summary stats
         stats_frame = ctk.CTkFrame(right_panel, fg_color="transparent")
         self._history_stats_frame = stats_frame
         stats_frame.pack(fill="x", pady=(12, 0))

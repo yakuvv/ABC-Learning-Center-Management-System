@@ -1,20 +1,17 @@
-"""Term dropdown options by level (ABC Learning Center tutorial center)."""
+# Term dropdown options by level (ABC Learning Center tutorial center).
 
 TERM_OPTIONS = ["Term 1", "Term 2"]
 
 
 def get_term_options(level: str) -> list:
-    """
-    Return Term dropdown values for the given level string (e.g. 'Grade 7').
-    This proposed system uses 2 terms only for all levels.
-    """
+    # I return Term dropdown values for the given level string (e.g. 'Grade 7'). This system uses 2 terms for all levels.
     if not level or not str(level).strip():
         return []
     return list(TERM_OPTIONS)
 
 
 def apply_term_combo_for_level(combo, level: str):
-    """Set combo values from level; keep current selection if still valid."""
+    # I set combo values from the level and keep the current selection if it's still valid.
     options = get_term_options(level)
     current = combo.get().strip() if combo.get() else ""
     combo.configure(values=options)
